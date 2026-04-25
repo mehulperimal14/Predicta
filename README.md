@@ -189,32 +189,6 @@ Access:
 
 ---
 
-## Resume Points
-
-- 9-layer industrial IoT architecture (ESP32 → PLC → SCADA → ML → Dashboard)
-- Real-time predictive maintenance with Random Forest + XGBoost ensemble
-- Modbus RTU/TCP + MQTT multi-protocol industrial communication
-- JWT role-based authentication (Admin/Engineer/Operator)
-- WebSocket live dashboard with Chart.js visualization
-- Docker containerized deployment (5 services)
-
----
-
-## Presentation Structure
-
-1. Problem Statement (Industrial Downtime Cost)
-2. System Architecture (9-layer diagram)
-3. Hardware Demo (ESP32 + Sensors + PLC Panel)
-4. SCADA Live Monitoring (Node-RED dashboard)
-5. Machine Health Score + KPI Cards
-6. ML Prediction Demo (inject fault conditions)
-7. Alert System (Email + Telegram live demo)
-8. Analytics Page (energy, trends, comparison)
-9. PDF Report Generation
-10. Docker Deployment + Cloud Roadmap
-
----
-
 ## Standards Referenced
 
 - IEC 61131-3 (PLC Programming)
@@ -226,10 +200,3 @@ Access:
 - Modbus RTU/TCP (Modbus Organization Standard)
 
 ---
-
-## Author
-
-**3rd Year B.Tech – Electronics and Computer Engineering**
-Project: PREDICTA v1.0
-Built with Flask + PostgreSQL + ESP32 + Delta PLC + Random Forest ML
-
