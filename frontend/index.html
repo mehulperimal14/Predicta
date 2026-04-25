@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PREDICTA – Industrial Machine Health Monitoring</title>
+  <meta name="description" content="AI-Based Industrial Machine Health Monitoring and Predictive Maintenance Dashboard"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <!-- ═══ SIDEBAR ══════════════════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="logo-name">PREDICTA</span>
+        <span class="logo-tag">v1.0 Industrial</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Monitoring</div>
+      <a href="index.html" class="nav-item active" id="nav-dashboard">
+        <span class="nav-icon">◈</span> Live Dashboard
+      </a>
+      <a href="analytics.html" class="nav-item" id="nav-analytics">
+        <span class="nav-icon">◉</span> Analytics
+      </a>
+      <a href="maintenance.html" class="nav-item" id="nav-maintenance">
+        <span class="nav-icon">◫</span> Maintenance
+      </a>
+
+      <div class="nav-section-label" style="margin-top:24px">Management</div>
+      <a href="reports.html" class="nav-item" id="nav-reports">
+        <span class="nav-icon">◧</span> Reports
+      </a>
+      <a href="admin.html" class="nav-item" id="nav-admin">
+        <span class="nav-icon">◩</span> Admin
+      </a>
+    </nav>
+
+    <div class="sidebar-machine">
+      <div class="machine-label">Active Machine</div>
+      <div class="machine-id" id="sidebar-device-id">MOTOR_01</div>
+      <div class="machine-type">3φ Induction Motor + Pump</div>
+      <div class="machine-status">
+        <span class="status-dot" id="sidebar-status-dot"></span>
+        <span id="sidebar-status-text">Connecting…</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN CONTENT ═════════════════════════════════════════════════════ -->
+  <main class="main-content">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Live Dashboard</h1>
+        <div class="breadcrumb">Machine Health Monitoring / Real-Time Analysis</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-time" id="topbar-clock">--:--:--</div>
+        <div class="alert-badge" id="alert-badge" title="Active Alerts">
+          <span class="badge-icon">🔔</span>
+          <span class="badge-count" id="alert-count">0</span>
+        </div>
+        <div class="user-pill">
+          <span class="user-avatar">A</span>
+          <span class="user-name" id="user-name">Admin</span>
+        </div>
+        <button class="btn-icon" onclick="logout()" title="Logout">⏻</button>
+      </div>
+    </header>
+
+    <!-- ── SECTION A: LIVE MONITORING ──────────────────────────────────── -->
+    <section class="dashboard-section">
+      <div class="section-header">
+        <div class="section-badge">SECTION A</div>
+        <h2 class="section-title">Live Machine Monitoring</h2>
+        <div class="live-indicator">
+          <span class="live-dot"></span> LIVE
+        </div>
+        <div class="last-update">Last update: <span id="last-update-time">--</span></div>
+      </div>
+
+      <!-- Health Score Banner -->
+      <div class="health-banner" id="health-banner">
+        <div class="health-main">
+          <div class="health-score-ring">
+            <svg class="ring-svg" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52"/>
+              <circle class="ring-fill" id="health-ring" cx="60" cy="60" r="52"
+                      stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+            </svg>
+            <div class="ring-content">
+              <div class="health-value" id="health-score">--</div>
+              <div class="health-label">Health</div>
+            </div>
+          </div>
+          <div class="health-details">
+            <div class="health-status-text" id="health-status-text">Initializing…</div>
+            <div class="health-meta">
+              <span>Efficiency: <strong id="efficiency-val">--%</strong></span>
+              <span>Run Hours: <strong id="run-hours-val">--h</strong></span>
+              <span>Start Cycles: <strong id="start-cycles-val">--</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="health-badges">
+          <div class="hbadge" id="badge-overload">
+            <span class="hbadge-icon">⚡</span>
+            <span class="hbadge-label">Overload</span>
+            <span class="hbadge-val" id="badge-overload-val">OK</span>
+          </div>
+          <div class="hbadge" id="badge-overheat">
+            <span class="hbadge-icon">🌡</span>
+            <span class="hbadge-label">Overheat</span>
+            <span class="hbadge-val" id="badge-overheat-val">OK</span>
+          </div>
+          <div class="hbadge" id="badge-vibration">
+            <span class="hbadge-icon">📳</span>
+            <span class="hbadge-label">Vibration</span>
+            <span class="hbadge-val" id="badge-vibration-val">OK</span>
+          </div>
+          <div class="hbadge" id="badge-running">
+            <span class="hbadge-icon">▶</span>
+            <span class="hbadge-label">Motor</span>
+            <span class="hbadge-val" id="badge-running-val">RUNNING</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Cards Row 1 -->
+      <div class="kpi-grid">
+        <div class="kpi-card" id="kpi-voltage">
+          <div class="kpi-icon">⚡</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Voltage</div>
+            <div class="kpi-value"><span id="kpi-voltage-val">---</span><span class="kpi-unit">V</span></div>
+            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-voltage-bar"></div></div>
+            <div class="kpi-sub">Normal: 380–440V</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpi-current">
+          <div class="kpi-icon">〰</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Current</div>
+            <div class="kpi-value"><span id="kpi-current-val">---</span><span class="kpi-unit">A</span></div>
+            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-current-bar"></div></div>
+            <div class="kpi-sub">FLC: 3.5A | OL: 4.5A</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpi-temp">
+          <div class="kpi-icon">🌡</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Motor Temp</div>
+            <div class="kpi-value"><span id="kpi-temp-val">---</span><span class="kpi-unit">°C</span></div>
+            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-temp-bar"></div></div>
+            <div class="kpi-sub">Warn: 75°C | Crit: 85°C</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpi-vibration">
+          <div class="kpi-icon">📳</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Vibration</div>
+            <div class="kpi-value"><span id="kpi-vib-val">---</span><span class="kpi-unit">g</span></div>
+            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-vib-bar"></div></div>
+            <div class="kpi-sub">Warn: 0.5g | Crit: 1.0g</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpi-rpm">
+          <div class="kpi-icon">⚙</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Speed (RPM)</div>
+            <div class="kpi-value"><span id="kpi-rpm-val">----</span><span class="kpi-unit">RPM</span></div>
+            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-rpm-bar"></div></div>
+            <div class="kpi-sub">Rated: 1440 RPM</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpi-power">
+          <div class="kpi-icon">⚡</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Power</div>
+            <div class="kpi-value"><span id="kpi-power-val">---</span><span class="kpi-unit">kW</span></div>
+            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-power-bar"></div></div>
+            <div class="kpi-sub">Rated: 1.5 kW</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpi-bearing">
+          <div class="kpi-icon">⭕</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Bearing Temp</div>
+            <div class="kpi-value"><span id="kpi-bearing-val">---</span><span class="kpi-unit">°C</span></div>
+            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-bearing-bar"></div></div>
+            <div class="kpi-sub">Warn: 70°C</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpi-pressure">
+          <div class="kpi-icon">💧</div>
+          <div class="kpi-body">
+            <div class="kpi-label">Pump Pressure</div>
+            <div class="kpi-value"><span id="kpi-pressure-val">---</span><span class="kpi-unit">kPa</span></div>
+            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-pressure-bar"></div></div>
+            <div class="kpi-sub">Range: 50–600 kPa</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="charts-grid">
+        <div class="chart-card chart-lg">
+          <div class="chart-header">
+            <span class="chart-title">Current & Voltage Trend</span>
+            <div class="chart-controls">
+              <button class="chart-btn active" onclick="setTimeRange(this, '1h')">1H</button>
+              <button class="chart-btn" onclick="setTimeRange(this, '6h')">6H</button>
+              <button class="chart-btn" onclick="setTimeRange(this, '24h')">24H</button>
+            </div>
+          </div>
+          <canvas id="chart-current-voltage" height="200"></canvas>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">Temperature Trend</span>
+          </div>
+          <canvas id="chart-temperature" height="200"></canvas>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">Vibration (g RMS)</span>
+          </div>
+          <canvas id="chart-vibration" height="200"></canvas>
+        </div>
+
+        <div class="chart-card chart-sm">
+          <div class="chart-header">
+            <span class="chart-title">Parameter Health</span>
+          </div>
+          <canvas id="chart-radar" height="250"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION B: PREDICTIVE MAINTENANCE ──────────────────────────── -->
+    <section class="dashboard-section" style="margin-top:32px">
+      <div class="section-header">
+        <div class="section-badge" style="background: linear-gradient(135deg,#ff6b35,#ff4444);">SECTION B</div>
+        <h2 class="section-title">AI Predictive Maintenance</h2>
+        <button class="btn-predict" id="btn-run-prediction" onclick="runPrediction()">
+          🤖 Run ML Prediction
+        </button>
+      </div>
+
+      <!-- Prediction Result Card -->
+      <div class="prediction-panel" id="prediction-panel">
+        <div class="pred-left">
+          <div class="pred-fault-type" id="pred-fault-type">—</div>
+          <div class="pred-root-cause" id="pred-root-cause">Run a prediction to see analysis results.</div>
+          <div class="pred-meta">
+            <div class="pred-meta-item">
+              <span class="pred-meta-label">Failure Probability</span>
+              <div class="pred-prob-bar">
+                <div class="pred-prob-fill" id="pred-prob-fill"></div>
+              </div>
+              <span class="pred-meta-val" id="pred-failure-prob">--%</span>
+            </div>
+            <div class="pred-meta-item">
+              <span class="pred-meta-label">ML Confidence</span>
+              <span class="pred-meta-val" id="pred-confidence">--%</span>
+            </div>
+            <div class="pred-meta-item">
+              <span class="pred-meta-label">Remaining Useful Life</span>
+              <span class="pred-meta-val" id="pred-rul">-- days</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pred-right">
+          <div class="pred-severity-block" id="pred-severity-block">
+            <div class="pred-severity-label">SEVERITY</div>
+            <div class="pred-severity-val" id="pred-severity">–</div>
+            <div class="pred-score" id="pred-score">Score: --</div>
+          </div>
+          <div class="pred-urgency-block" id="pred-urgency-block">
+            <div class="pred-urgency-label">MAINTENANCE URGENCY</div>
+            <div class="pred-urgency-val" id="pred-urgency">–</div>
+          </div>
+          <div class="pred-recommendation">
+            <div class="pred-rec-title">🔧 Recommended Action</div>
+            <div class="pred-rec-text" id="pred-recommendation">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Alerts + Fault Probability Chart -->
+      <div class="pred-bottom-grid">
+        <div class="alerts-panel">
+          <div class="panel-header">
+            <span class="panel-title">Active Fault Alerts</span>
+            <span class="panel-badge" id="active-faults-count">0</span>
+          </div>
+          <div class="alerts-list" id="alerts-list">
+            <div class="no-alerts">✅ No active fault alerts</div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">Fault Probability Breakdown</span>
+          </div>
+          <canvas id="chart-fault-prob" height="250"></canvas>
+        </div>
+
+        <div class="maintenance-schedule-panel">
+          <div class="panel-header">
+            <span class="panel-title">Upcoming Maintenance</span>
+            <a href="maintenance.html" class="panel-link">View All →</a>
+          </div>
+          <div class="maintenance-list" id="maintenance-list">
+            <div class="loading-text">Loading schedule…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══ NOTIFICATION TOAST ═══════════════════════════════════════════════ -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

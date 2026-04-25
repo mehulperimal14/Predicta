@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PREDICTA – Reports</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .report-gen-card { background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--radius); padding:28px; margin-bottom:24px; display:grid; grid-template-columns:1fr auto; gap:24px; align-items:center; }
+    .report-options { display:flex; gap:14px; flex-wrap:wrap; margin-top:14px; }
+    .report-option { display:flex; align-items:center; gap:8px; cursor:pointer; }
+    .report-option input { accent-color:var(--accent); }
+    .report-option label { font-size:13px; color:var(--text-dim); cursor:pointer; }
+    .gen-actions { display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
+    .btn-gen { background:linear-gradient(135deg,#00d4ff,#0077b6); border:none; border-radius:10px; color:#fff; padding:12px 24px; font-size:14px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; transition:var(--transition); white-space:nowrap; }
+    .btn-gen:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,212,255,0.35); }
+    .btn-gen:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+    .table-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:20px; }
+    .table-card .panel-header { padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    table { width:100%; border-collapse:collapse; }
+    thead th { padding:10px 16px; font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; text-align:left; background:rgba(255,255,255,0.03); border-bottom:1px solid var(--border); }
+    tbody tr { border-bottom:1px solid var(--border); transition:var(--transition); }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:var(--bg-hover); }
+    tbody td { padding:10px 16px; font-size:13px; color:var(--text-dim); vertical-align:middle; }
+    .badge { display:inline-block; padding:3px 8px; border-radius:5px; font-size:10px; font-weight:700; text-transform:uppercase; }
+    .dl-btn { background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.3); color:var(--accent); padding:5px 12px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; transition:var(--transition); }
+    .dl-btn:hover { background:rgba(0,212,255,0.2); }
+    .stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+    .stat-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+    .stat-val { font-size:24px; font-weight:800; color:var(--accent); line-height:1; margin:6px 0 4px; }
+    .stat-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; }
+    .preview-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:20px; }
+    .preview-header { display:flex; justify-content:space-between; align-items:center; padding-bottom:16px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+    .preview-logo { font-size:20px; font-weight:800; color:var(--accent); }
+    .preview-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:12px; }
+    .preview-key { color:var(--text-muted); }
+    .preview-val { color:#fff; font-weight:500; font-family:'JetBrains Mono',monospace; }
+    .progress-bar { height:6px; background:rgba(255,255,255,0.08); border-radius:3px; margin:4px 0; }
+    .progress-fill { height:100%; border-radius:3px; background:var(--accent); transition:width 1s ease; }
+    select.form-select { padding:9px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#fff; font-size:13px; font-family:'Inter',sans-serif; }
+    select.form-select option { background:#1a1d2e; }
+    .empty-state { text-align:center; padding:30px; color:var(--text-muted); font-size:13px; }
+  </style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">⚡</div>
+    <div class="logo-text"><span class="logo-name">PREDICTA</span><span class="logo-tag">v1.0 Industrial</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Monitoring</div>
+    <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Live Dashboard</a>
+    <a href="analytics.html" class="nav-item"><span class="nav-icon">◉</span> Analytics</a>
+    <a href="maintenance.html" class="nav-item"><span class="nav-icon">◫</span> Maintenance</a>
+    <div class="nav-section-label" style="margin-top:24px">Management</div>
+    <a href="reports.html" class="nav-item active"><span class="nav-icon">◧</span> Reports</a>
+    <a href="admin.html" class="nav-item"><span class="nav-icon">◩</span> Admin</a>
+  </nav>
+  <div class="sidebar-machine">
+    <div class="machine-label">Active Machine</div>
+    <div class="machine-id">MOTOR_01</div>
+    <div class="machine-type">3φ Induction Motor + Pump</div>
+    <div class="machine-status"><span class="status-dot online"></span><span>Running</span></div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Reports</h1>
+      <div class="breadcrumb">Machine Health Reports / PDF Generation / Fault History</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-time" id="topbar-clock">--:--:--</div>
+      <div class="user-pill"><span class="user-avatar">A</span><span class="user-name" id="user-name">Admin</span></div>
+      <button class="btn-icon" onclick="logout()">⏻</button>
+    </div>
+  </header>
+
+  <!-- Report Generator -->
+  <div class="section-header">
+    <div class="section-badge">GENERATE</div>
+    <h2 class="section-title">Generate Report</h2>
+  </div>
+  <div class="report-gen-card">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px">📄 Machine Health PDF Report</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Generates a comprehensive industrial report with sensor trends, fault analysis, ML predictions, energy summary and maintenance recommendations.</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">MACHINE</label>
+          <select class="form-select" id="rep-device"><option value="MOTOR_01">MOTOR_01 – Cooling Tower Pump</option></select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">PERIOD</label>
+          <select class="form-select" id="rep-days">
+            <option value="7">Last 7 Days</option>
+            <option value="14">Last 14 Days</option>
+            <option value="30" selected>Last 30 Days</option>
+          </select>
+        </div>
+      </div>
+      <div class="report-options" style="margin-top:16px">
+        <div class="report-option"><input type="checkbox" id="inc-trends" checked/><label for="inc-trends">Health Trends</label></div>
+        <div class="report-option"><input type="checkbox" id="inc-energy" checked/><label for="inc-energy">Energy Analysis</label></div>
+        <div class="report-option"><input type="checkbox" id="inc-faults" checked/><label for="inc-faults">Fault History</label></div>
+        <div class="report-option"><input type="checkbox" id="inc-maint" checked/><label for="inc-maint">Maintenance Log</label></div>
+        <div class="report-option"><input type="checkbox" id="inc-ml" checked/><label for="inc-ml">ML Predictions</label></div>
+      </div>
+      <div id="gen-progress" style="display:none;margin-top:14px">
+        <div style="font-size:12px;color:var(--accent);margin-bottom:6px" id="gen-status-text">Generating report…</div>
+        <div class="progress-bar"><div class="progress-fill" id="gen-progress-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="gen-actions">
+      <button class="btn-gen" id="btn-generate" onclick="generateReport()">⬇ Download PDF</button>
+      <button class="btn-gen" style="background:linear-gradient(135deg,rgba(168,85,247,0.4),rgba(109,40,217,0.4));border:1px solid rgba(168,85,247,0.4)" onclick="previewReport()">👁 Preview Data</button>
+    </div>
+  </div>
+
+  <!-- Live Preview -->
+  <div class="preview-panel" id="preview-section" style="display:none">
+    <div class="section-header" style="margin-bottom:0">
+      <div class="section-badge" style="background:linear-gradient(135deg,rgba(168,85,247,0.2),rgba(109,40,217,0.2))">PREVIEW</div>
+      <h2 class="section-title">Report Data Preview</h2>
+      <button onclick="document.getElementById('preview-section').style.display='none'" class="btn-icon" style="width:auto;padding:4px 10px;font-size:12px">✕ Close</button>
+    </div>
+    <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:20px" id="preview-content"></div>
+  </div>
+
+  <!-- Report Stats -->
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Reports Generated</div>
+      <div class="stat-val" id="stat-reports">--</div>
+      <div style="font-size:11px;color:var(--text-muted)">Total this month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Faults</div>
+      <div class="stat-val" id="stat-faults" style="color:var(--red)">--</div>
+      <div style="font-size:11px;color:var(--text-muted)">Requiring action</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Alert Messages</div>
+      <div class="stat-val" id="stat-alerts" style="color:var(--yellow)">--</div>
+      <div style="font-size:11px;color:var(--text-muted)">Sent this period</div>
+    </div>
+  </div>
+
+  <!-- Fault History Table -->
+  <div class="section-header">
+    <div class="section-badge" style="background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,140,0,0.2))">FAULT LOG</div>
+    <h2 class="section-title">Fault Event History</h2>
+  </div>
+  <div class="table-card">
+    <div class="panel-header">
+      <span class="panel-title">All Fault Events</span>
+      <span id="fault-count" style="font-size:11px;color:var(--text-muted)">-- events</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Fault Type</th><th>Severity</th><th>Confidence</th><th>Root Cause</th><th>Occurred</th><th>Status</th><th>RUL</th></tr></thead>
+        <tbody id="fault-tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Alert History Table -->
+  <div class="section-header">
+    <div class="section-badge" style="background:linear-gradient(135deg,rgba(0,212,255,0.2),rgba(0,119,182,0.2))">ALERT LOG</div>
+    <h2 class="section-title">Alert History</h2>
+  </div>
+  <div class="table-card">
+    <div class="panel-header"><span class="panel-title">All Sent Alerts</span></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Message</th><th>Severity</th><th>Type</th><th>Recipient</th><th>Sent At</th><th>Delivered</th></tr></thead>
+        <tbody id="alert-tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="js/api.js"></script>
+<script>
+const DEVICE = "MOTOR_01";
+window.addEventListener("DOMContentLoaded", () => {
+  if (!API.getToken()) { window.location.href = "login.html"; return; }
+  const u = API.getUser(); if (u) document.getElementById("user-name").textContent = u.username;
+  setInterval(() => { document.getElementById("topbar-clock").textContent = new Date().toLocaleTimeString("en-IN",{hour12:false}); }, 1000);
+  loadFaultHistory(); loadAlertHistory(); loadStats();
+});
+
+async function loadStats() {
+  const faults = await API.getFaults(DEVICE);
+  document.getElementById("stat-faults").textContent = Array.isArray(faults) ? faults.length : 0;
+  const alerts = await API.getAlerts(DEVICE);
+  document.getElementById("stat-alerts").textContent = Array.isArray(alerts) ? alerts.length : 0;
+  document.getElementById("stat-reports").textContent = parseInt(localStorage.getItem("reports_generated")||"0");
+}
+
+async function loadFaultHistory() {
+  const data = await API.get(`/predict/faults/${DEVICE}?active_only=false`);
+  const faults = Array.isArray(data) ? data : [];
+  document.getElementById("fault-count").textContent = faults.length + " events";
+  const tbody = document.getElementById("fault-tbody");
+  if (!faults.length) { tbody.innerHTML='<tr><td colspan="7" class="empty-state">No fault events recorded yet.</td></tr>'; return; }
+  const sevColor = {CRITICAL:"var(--red)",HIGH:"var(--orange)",MEDIUM:"var(--yellow)",LOW:"var(--accent)",NORMAL:"var(--green)"};
+  tbody.innerHTML = faults.map(f => `<tr>
+    <td>${f.fault_type||"—"}</td>
+    <td><span style="color:${sevColor[f.severity]||"#fff"};font-weight:700;font-size:12px">${f.severity||"—"}</span></td>
+    <td>${f.ml_confidence ? f.ml_confidence.toFixed(1)+"%" : "—"}</td>
+    <td style="max-width:220px;font-size:11px;color:var(--text-muted)">${f.root_cause||"—"}</td>
+    <td style="font-size:11px;font-family:'JetBrains Mono',monospace">${f.occurred_at ? new Date(f.occurred_at).toLocaleString("en-IN") : "—"}</td>
+    <td><span class="badge" style="background:${f.is_active?"rgba(255,68,68,0.2)":"rgba(0,255,136,0.2)"};color:${f.is_active?"var(--red)":"var(--green)"}">${f.is_active?"ACTIVE":"RESOLVED"}</span></td>
+    <td>${f.rul_days ? f.rul_days+" d" : "—"}</td>
+  </tr>`).join("");
+}
+
+async function loadAlertHistory() {
+  const data = await API.getAlerts(DEVICE);
+  const alerts = Array.isArray(data) ? data : [];
+  const tbody = document.getElementById("alert-tbody");
+  if (!alerts.length) { tbody.innerHTML='<tr><td colspan="6" class="empty-state">No alerts sent yet.</td></tr>'; return; }
+  tbody.innerHTML = alerts.map(a => `<tr>
+    <td style="max-width:260px;font-size:12px">${a.message||"—"}</td>
+    <td><span style="font-size:11px;font-weight:700;color:${a.severity==="CRITICAL"?"var(--red)":a.severity==="HIGH"?"var(--orange)":"var(--yellow)"}">${a.severity||"—"}</span></td>
+    <td style="font-size:11px;color:var(--text-muted)">${a.alert_type||"—"}</td>
+    <td style="font-size:11px;font-family:'JetBrains Mono',monospace">${a.recipient||"—"}</td>
+    <td style="font-size:11px;font-family:'JetBrains Mono',monospace">${a.sent_at ? new Date(a.sent_at).toLocaleString("en-IN") : "—"}</td>
+    <td><span style="color:${a.delivered?"var(--green)":"var(--text-muted)"}">${a.delivered?"✓ Yes":"Pending"}</span></td>
+  </tr>`).join("");
+}
+
+async function generateReport() {
+  const btn = document.getElementById("btn-generate");
+  const prog = document.getElementById("gen-progress");
+  const fill = document.getElementById("gen-progress-fill");
+  const statusTxt = document.getElementById("gen-status-text");
+  btn.disabled = true; btn.textContent = "⏳ Generating…"; prog.style.display = "block";
+  const steps = [
+    [20,"Fetching sensor readings…"],
+    [40,"Running ML analysis…"],
+    [65,"Computing energy summary…"],
+    [85,"Building PDF…"],
+    [100,"Complete!"]
+  ];
+  for (const [pct, msg] of steps) {
+    fill.style.width = pct+"%"; statusTxt.textContent = msg;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  const days = document.getElementById("rep-days").value;
+  API.downloadReport(DEVICE, days);
+  const count = parseInt(localStorage.getItem("reports_generated")||"0") + 1;
+  localStorage.setItem("reports_generated", count);
+  document.getElementById("stat-reports").textContent = count;
+  btn.disabled = false; btn.textContent = "⬇ Download PDF";
+  setTimeout(() => { prog.style.display="none"; fill.style.width="0%"; }, 2000);
+  showToast("success","Report Downloaded","PDF report saved to your downloads folder.");
+}
+
+async function previewReport() {
+  const perf = await API.getPerformance(DEVICE);
+  const latest = await API.getLatest(DEVICE);
+  const sec = document.getElementById("preview-section");
+  const content = document.getElementById("preview-content");
+  sec.style.display = "block"; sec.scrollIntoView({behavior:"smooth"});
+  const rows1 = [
+    ["OEE",         (perf?.oee||0)+"%"],
+    ["Availability",(perf?.availability||0)+"%"],
+    ["Performance", (perf?.performance||0)+"%"],
+    ["Avg Health",  (perf?.avg_health||0)+"%"],
+    ["Avg Efficiency",(perf?.avg_efficiency||0)+"%"],
+  ];
+  const rows2 = latest ? [
+    ["Voltage",     (latest.voltage||0).toFixed(1)+" V"],
+    ["Current",     (latest.current||0).toFixed(2)+" A"],
+    ["Motor Temp",  (latest.motor_temp||0).toFixed(1)+" °C"],
+    ["Vibration",   (latest.vibration_rms||0).toFixed(3)+" g"],
+    ["RPM",         (latest.rpm||0)+" RPM"],
+    ["Power",       (latest.power_kw||0).toFixed(2)+" kW"],
+  ] : [];
+  const makeTable = (title, rows) => `
+    <div>
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.8px">${title}</div>
+      ${rows.map(([k,v])=>`<div class="preview-row"><span class="preview-key">${k}</span><span class="preview-val">${v}</span></div>`).join("")}
+    </div>`;
+  content.innerHTML = makeTable("Machine Performance (24h)", rows1) + makeTable("Latest Sensor Values", rows2);
+}
+
+function logout() { API.clearTokens(); window.location.href = "login.html"; }
+function showToast(type,title,msg){
+  const icons={success:"✅",error:"🔴",warning:"⚠️",info:"ℹ️"};
+  const tc=document.getElementById("toast-container");
+  const t=document.createElement("div");
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span class="toast-icon">${icons[type]}</span><div><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>`;
+  tc.appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},4000);
+}
+</script>
+</body>
+</html>

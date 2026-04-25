@@ -1,0 +1,3 @@
+"""
+PREDICTA – Routes package init
+"""

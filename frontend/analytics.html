@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PREDICTA – Analytics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .analytics-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    .analytics-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:20px; }
+    .oee-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+    .oee-card {
+      background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:18px; text-align:center;
+    }
+    .oee-val { font-size:28px; font-weight:800; line-height:1; margin:8px 0 4px; }
+    .oee-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; }
+    .oee-sub { font-size:11px; color:var(--text-muted); margin-top:4px; }
+    .comparison-row { display:flex; gap:16px; flex-wrap:wrap; }
+    .comparison-card {
+      flex:1; min-width:200px; background:var(--bg-card);
+      border:1px solid var(--border); border-radius:var(--radius); padding:16px;
+    }
+    .comp-title { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:12px; }
+    .comp-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); }
+    .comp-row:last-child { border-bottom:none; }
+    .comp-metric { font-size:12px; color:var(--text-dim); }
+    .comp-vals { display:flex; gap:16px; font-size:12px; font-weight:600; }
+    .comp-curr { color:#fff; }
+    .comp-change { font-size:11px; font-weight:600; }
+    .comp-change.pos { color:var(--green); }
+    .comp-change.neg { color:var(--red); }
+    .suggestions-panel { background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--radius); padding:16px; margin-bottom:20px; }
+    .suggestion-item { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-dim); }
+    .suggestion-item:last-child { border-bottom:none; }
+    .day-range-btns { display:flex; gap:6px; }
+    .range-btn {
+      padding:5px 12px; border-radius:6px; font-size:11px; font-weight:600;
+      border:1px solid var(--border); background:transparent; color:var(--text-muted); cursor:pointer;
+      transition:var(--transition);
+    }
+    .range-btn.active, .range-btn:hover { background:var(--accent-dim); color:var(--accent); border-color:var(--border-accent); }
+    .chart-full { grid-column:span 2; }
+  </style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">⚡</div>
+    <div class="logo-text"><span class="logo-name">PREDICTA</span><span class="logo-tag">v1.0 Industrial</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Monitoring</div>
+    <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Live Dashboard</a>
+    <a href="analytics.html" class="nav-item active"><span class="nav-icon">◉</span> Analytics</a>
+    <a href="maintenance.html" class="nav-item"><span class="nav-icon">◫</span> Maintenance</a>
+    <div class="nav-section-label" style="margin-top:24px">Management</div>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">◧</span> Reports</a>
+    <a href="admin.html" class="nav-item"><span class="nav-icon">◩</span> Admin</a>
+  </nav>
+  <div class="sidebar-machine">
+    <div class="machine-label">Active Machine</div>
+    <div class="machine-id">MOTOR_01</div>
+    <div class="machine-type">3φ Induction Motor + Pump</div>
+    <div class="machine-status"><span class="status-dot online"></span><span>Running</span></div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Analytics</h1>
+      <div class="breadcrumb">Performance Analysis / Trends / Energy</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-time" id="topbar-clock">--:--:--</div>
+      <div class="day-range-btns">
+        <button class="range-btn active" onclick="setRange(this,7)">7D</button>
+        <button class="range-btn" onclick="setRange(this,14)">14D</button>
+        <button class="range-btn" onclick="setRange(this,30)">30D</button>
+      </div>
+      <div class="user-pill">
+        <span class="user-avatar">A</span>
+        <span class="user-name" id="user-name">Admin</span>
+      </div>
+      <button class="btn-icon" onclick="logout()" title="Logout">⏻</button>
+    </div>
+  </header>
+
+  <!-- OEE Metrics -->
+  <div class="section-header">
+    <div class="section-badge">OEE</div>
+    <h2 class="section-title">Overall Equipment Effectiveness</h2>
+    <div class="last-update">Last 24 hours</div>
+  </div>
+  <div class="oee-cards">
+    <div class="oee-card">
+      <div class="oee-label">OEE Score</div>
+      <div class="oee-val" id="oee-val" style="color:var(--accent)">--%</div>
+      <div class="oee-sub">World class: 85%+</div>
+    </div>
+    <div class="oee-card">
+      <div class="oee-label">Availability</div>
+      <div class="oee-val" id="oee-avail" style="color:var(--green)">--%</div>
+      <div class="oee-sub">% time healthy</div>
+    </div>
+    <div class="oee-card">
+      <div class="oee-label">Performance</div>
+      <div class="oee-val" id="oee-perf" style="color:var(--yellow)">--%</div>
+      <div class="oee-sub">Motor efficiency</div>
+    </div>
+    <div class="oee-card">
+      <div class="oee-label">Quality</div>
+      <div class="oee-val" id="oee-qual" style="color:var(--purple)">--%</div>
+      <div class="oee-sub">Vibration quality</div>
+    </div>
+  </div>
+
+  <!-- Suggestions -->
+  <div class="suggestions-panel" id="suggestions-panel" style="display:none">
+    <div class="section-header" style="margin-bottom:8px">
+      <span style="color:var(--yellow);font-size:16px">⚠</span>
+      <span style="font-size:13px;font-weight:600;color:var(--yellow)">AI Performance Recommendations</span>
+    </div>
+    <div id="suggestions-list"></div>
+  </div>
+
+  <!-- Health Trend + Fault Breakdown -->
+  <div class="section-header">
+    <div class="section-badge" style="background:linear-gradient(135deg,rgba(0,212,255,0.2),rgba(0,119,182,0.2))">TRENDS</div>
+    <h2 class="section-title">Health & Parameter Trends</h2>
+  </div>
+  <div class="analytics-grid">
+    <div class="chart-card chart-full">
+      <div class="chart-header">
+        <span class="chart-title">Machine Health Score Over Time</span>
+      </div>
+      <canvas id="chart-health-trend" height="140"></canvas>
+    </div>
+  </div>
+  <div class="analytics-grid">
+    <div class="chart-card">
+      <div class="chart-header"><span class="chart-title">Temperature Trend (°C)</span></div>
+      <canvas id="chart-temp-trend" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header"><span class="chart-title">Current Trend (A)</span></div>
+      <canvas id="chart-current-trend" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Energy Analysis -->
+  <div class="section-header">
+    <div class="section-badge" style="background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,140,0,0.2))">ENERGY</div>
+    <h2 class="section-title">Energy Consumption Analysis</h2>
+  </div>
+  <div class="analytics-grid">
+    <div class="chart-card chart-full">
+      <div class="chart-header">
+        <span class="chart-title">Daily Energy Consumption (kWh) + Cost (₹)</span>
+      </div>
+      <canvas id="chart-energy" height="140"></canvas>
+    </div>
+  </div>
+  <div class="oee-cards" id="energy-summary">
+    <div class="oee-card">
+      <div class="oee-label">Total kWh</div>
+      <div class="oee-val" id="energy-total" style="color:var(--yellow)">--</div>
+      <div class="oee-sub">Period total</div>
+    </div>
+    <div class="oee-card">
+      <div class="oee-label">Peak Load</div>
+      <div class="oee-val" id="energy-peak" style="color:var(--orange)">-- kW</div>
+      <div class="oee-sub">Max demand</div>
+    </div>
+    <div class="oee-card">
+      <div class="oee-label">Avg Load</div>
+      <div class="oee-val" id="energy-avg" style="color:var(--accent)">-- kW</div>
+      <div class="oee-sub">Avg demand</div>
+    </div>
+    <div class="oee-card">
+      <div class="oee-label">Est. Cost</div>
+      <div class="oee-val" id="energy-cost" style="color:var(--green)">₹--</div>
+      <div class="oee-sub">@ ₹8.5/kWh</div>
+    </div>
+  </div>
+
+  <!-- Fault Summary + Period Comparison -->
+  <div class="section-header">
+    <div class="section-badge" style="background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,140,0,0.2))">FAULTS</div>
+    <h2 class="section-title">Fault History & Period Comparison</h2>
+  </div>
+  <div class="analytics-grid-3">
+    <div class="chart-card">
+      <div class="chart-header"><span class="chart-title">Fault Distribution</span></div>
+      <canvas id="chart-faults-doughnut" height="240"></canvas>
+    </div>
+    <div class="comparison-card" style="grid-column:span 2">
+      <div class="comp-title">This Week vs Last Week</div>
+      <div id="comparison-table"><div class="loading-text">Loading…</div></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="js/api.js"></script>
+<script>
+const DEVICE = "MOTOR_01";
+let currentDays = 7;
+
+Chart.defaults.color = "#6b7280";
+Chart.defaults.borderColor = "rgba(255,255,255,0.06)";
+Chart.defaults.font.family = "'Inter', sans-serif";
+
+window.addEventListener("DOMContentLoaded", () => {
+  if (!API.getToken()) { window.location.href = "login.html"; return; }
+  const u = API.getUser();
+  if (u) document.getElementById("user-name").textContent = u.username;
+  setInterval(() => {
+    document.getElementById("topbar-clock").textContent =
+      new Date().toLocaleTimeString("en-IN",{hour12:false});
+  }, 1000);
+  loadAll();
+});
+
+async function setRange(btn, days) {
+  document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  currentDays = days;
+  loadAll();
+}
+
+async function loadAll() {
+  loadOEE();
+  loadHealthTrend();
+  loadEnergy();
+  loadFaultSummary();
+  loadComparison();
+}
+
+async function loadOEE() {
+  const d = await API.getPerformance(DEVICE);
+  if (!d || d.error) return;
+  document.getElementById("oee-val").textContent   = d.oee + "%";
+  document.getElementById("oee-avail").textContent = d.availability + "%";
+  document.getElementById("oee-perf").textContent  = d.performance + "%";
+  document.getElementById("oee-qual").textContent  = d.quality + "%";
+  if (d.suggestions && d.suggestions.length) {
+    document.getElementById("suggestions-panel").style.display = "block";
+    document.getElementById("suggestions-list").innerHTML =
+      d.suggestions.map(s => `<div class="suggestion-item"><span>💡</span><span>${s}</span></div>`).join("");
+  }
+}
+
+let chartHealth, chartTemp, chartCurrent, chartEnergy, chartFault;
+
+async function loadHealthTrend() {
+  const data = await API.getHealthTrend(DEVICE, currentDays);
+  if (!data || data.error || !data.length) return;
+  const labels = data.map(d => d.timestamp.slice(5,16).replace("T"," "));
+  const health  = data.map(d => d.avg_health);
+  const temp    = data.map(d => d.avg_temp);
+  const current = data.map(d => d.avg_current);
+
+  if (chartHealth) chartHealth.destroy();
+  const ctx = document.getElementById("chart-health-trend").getContext("2d");
+  const g = ctx.createLinearGradient(0,0,0,200);
+  g.addColorStop(0,"rgba(0,255,136,0.3)"); g.addColorStop(1,"rgba(0,255,136,0)");
+  chartHealth = new Chart(ctx, {
+    type:"line",
+    data:{labels, datasets:[{
+      label:"Health Score %", data:health,
+      borderColor:"#00ff88", backgroundColor:g,
+      fill:true, tension:0.4, pointRadius:0, borderWidth:2
+    }]},
+    options:{
+      animation:false, responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false}, ticks:{maxTicksLimit:10,font:{size:9}}},
+        y:{min:0,max:100, ticks:{font:{size:10}}}
+      }
+    }
+  });
+
+  if (chartTemp) chartTemp.destroy();
+  const ctx2 = document.getElementById("chart-temp-trend").getContext("2d");
+  chartTemp = new Chart(ctx2, {
+    type:"line",
+    data:{labels, datasets:[{
+      label:"Avg Temp °C", data:temp,
+      borderColor:"#ff8c00", backgroundColor:"rgba(255,140,0,0.1)",
+      fill:true, tension:0.4, pointRadius:0, borderWidth:2
+    }]},
+    options:{animation:false,responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:9}}},y:{ticks:{font:{size:10}}}}}
+  });
+
+  if (chartCurrent) chartCurrent.destroy();
+  const ctx3 = document.getElementById("chart-current-trend").getContext("2d");
+  chartCurrent = new Chart(ctx3, {
+    type:"line",
+    data:{labels, datasets:[{
+      label:"Avg Current A", data:current,
+      borderColor:"#00d4ff", backgroundColor:"rgba(0,212,255,0.1)",
+      fill:true, tension:0.4, pointRadius:0, borderWidth:2
+    }]},
+    options:{animation:false,responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:9}}},y:{ticks:{font:{size:10}}}}}
+  });
+}
+
+async function loadEnergy() {
+  const data = await API.getEnergy(DEVICE, currentDays);
+  if (!data || data.error || !data.length) return;
+  const labels  = data.map(d => d.date.slice(5));
+  const kwh     = data.map(d => d.total_kwh);
+  const costs   = data.map(d => d.cost_inr);
+  const totalKwh = kwh.reduce((a,b)=>a+b,0);
+  const peakKw   = Math.max(...data.map(d=>d.peak_kw));
+  const avgKw    = data.reduce((a,d)=>a+d.avg_kw,0)/data.length;
+  const totalCost= costs.reduce((a,b)=>a+b,0);
+
+  document.getElementById("energy-total").textContent = totalKwh.toFixed(1);
+  document.getElementById("energy-peak").textContent  = peakKw.toFixed(2)+" kW";
+  document.getElementById("energy-avg").textContent   = avgKw.toFixed(2)+" kW";
+  document.getElementById("energy-cost").textContent  = "₹"+totalCost.toFixed(0);
+
+  if (chartEnergy) chartEnergy.destroy();
+  const ctx = document.getElementById("chart-energy").getContext("2d");
+  chartEnergy = new Chart(ctx, {
+    type:"bar",
+    data:{labels, datasets:[
+      {label:"Energy (kWh)", data:kwh, backgroundColor:"rgba(0,212,255,0.6)", borderRadius:4, yAxisID:"y"},
+      {label:"Cost (₹)", data:costs, type:"line", borderColor:"#ffd700",
+       backgroundColor:"rgba(255,215,0,0)", tension:0.4, pointRadius:3, borderWidth:2, yAxisID:"y2"}
+    ]},
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:9}}},
+        y:{position:"left",ticks:{font:{size:9}},title:{display:true,text:"kWh",font:{size:10}}},
+        y2:{position:"right",grid:{drawOnChartArea:false},ticks:{font:{size:9}},title:{display:true,text:"₹",font:{size:10}}}
+      }
+    }
+  });
+}
+
+async function loadFaultSummary() {
+  const data = await API.get(`/predict/faults/MOTOR_01?active_only=false`);
+  const faults = Array.isArray(data) ? data : [];
+  const byType = {};
+  faults.forEach(f => { byType[f.fault_type] = (byType[f.fault_type]||0)+1; });
+  const labels = Object.keys(byType);
+  const vals   = Object.values(byType);
+  const colors = ["#00ff88","#ff8c00","#ff4444","#ffd700","#00d4ff","#a855f7","#fb923c"];
+
+  if (chartFault) chartFault.destroy();
+  const ctx = document.getElementById("chart-faults-doughnut").getContext("2d");
+  chartFault = new Chart(ctx, {
+    type: labels.length ? "doughnut" : "doughnut",
+    data:{
+      labels: labels.length ? labels : ["No Faults"],
+      datasets:[{
+        data: vals.length ? vals : [1],
+        backgroundColor: labels.length ? colors.slice(0,labels.length) : ["rgba(0,255,136,0.3)"],
+        borderWidth:0, hoverOffset:6
+      }]
+    },
+    options:{
+      responsive:true, cutout:"65%",
+      plugins:{legend:{position:"bottom",labels:{font:{size:10},boxWidth:10,padding:12}}}
+    }
+  });
+}
+
+async function loadComparison() {
+  const data = await API.getComparison(DEVICE);
+  if (!data || data.error) return;
+  const metrics = [
+    {key:"health",    label:"Health Score", unit:"%"},
+    {key:"current",   label:"Current",      unit:"A"},
+    {key:"temp",      label:"Motor Temp",   unit:"°C"},
+    {key:"vibration", label:"Vibration",    unit:"g"},
+    {key:"efficiency",label:"Efficiency",   unit:"%"},
+  ];
+  const c = data.current_week, p = data.previous_week, ch = data.changes;
+  document.getElementById("comparison-table").innerHTML = `
+    <div style="display:flex;gap:60px;margin-bottom:10px;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">
+      <span style="flex:1">Metric</span><span style="width:80px;text-align:right">This Week</span>
+      <span style="width:80px;text-align:right">Last Week</span><span style="width:60px;text-align:right">Change</span>
+    </div>
+    ${metrics.map(m => {
+      const pct = ch[m.key] || 0;
+      const isGoodUp = m.key === "health" || m.key === "efficiency";
+      const cls = pct >= 0 ? (isGoodUp ? "pos":"neg") : (isGoodUp ? "neg":"pos");
+      const arrow = pct >= 0 ? "↑" : "↓";
+      return `<div class="comp-row">
+        <span class="comp-metric" style="flex:1">${m.label}</span>
+        <span class="comp-curr" style="width:80px;text-align:right">${(c[m.key]||0).toFixed(m.key==="vibration"?3:1)} ${m.unit}</span>
+        <span style="color:var(--text-muted);width:80px;text-align:right">${(p[m.key]||0).toFixed(m.key==="vibration"?3:1)} ${m.unit}</span>
+        <span class="comp-change ${cls}" style="width:60px;text-align:right">${arrow} ${Math.abs(pct).toFixed(1)}%</span>
+      </div>`;
+    }).join("")}`;
+}
+
+function logout() { API.clearTokens(); window.location.href = "login.html"; }
+function showToast(type,title,msg){
+  const icons={success:"✅",error:"🔴",warning:"⚠️",info:"ℹ️"};
+  const tc=document.getElementById("toast-container");
+  const t=document.createElement("div");
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span class="toast-icon">${icons[type]||"ℹ️"}</span><div><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>`;
+  tc.appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},4000);
+}
+</script>
+</body>
+</html>

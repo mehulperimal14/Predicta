@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PREDICTA – Maintenance</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .maint-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    .maint-full { grid-column:span 2; }
+    .table-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:20px; }
+    .table-card .panel-header { padding:14px 18px; border-bottom:1px solid var(--border); }
+    table { width:100%; border-collapse:collapse; }
+    thead th { padding:10px 16px; font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; text-align:left; background:rgba(255,255,255,0.03); border-bottom:1px solid var(--border); }
+    tbody tr { border-bottom:1px solid var(--border); transition:var(--transition); }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:var(--bg-hover); }
+    tbody td { padding:10px 16px; font-size:13px; color:var(--text-dim); vertical-align:middle; }
+    tbody td:first-child { color:#fff; font-weight:500; }
+    .badge { display:inline-block; padding:3px 8px; border-radius:5px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+    .badge-critical { background:rgba(255,68,68,0.2); color:var(--red); }
+    .badge-high     { background:rgba(255,140,0,0.2); color:var(--orange); }
+    .badge-medium   { background:rgba(255,215,0,0.2); color:var(--yellow); }
+    .badge-low      { background:rgba(0,212,255,0.2); color:var(--accent); }
+    .badge-completed{ background:rgba(0,255,136,0.2); color:var(--green); }
+    .badge-scheduled{ background:rgba(168,85,247,0.2); color:var(--purple); }
+    .badge-in-progress{ background:rgba(255,215,0,0.2); color:var(--yellow); }
+    .stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+    .stat-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+    .stat-val { font-size:24px; font-weight:800; color:var(--accent); line-height:1; margin:6px 0 4px; }
+    .stat-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; display:none; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:var(--bg-secondary); border:1px solid var(--border-accent); border-radius:16px; padding:28px; width:520px; max-width:calc(100vw - 32px); max-height:90vh; overflow-y:auto; }
+    .modal-title { font-size:16px; font-weight:700; color:#fff; margin:0 0 20px 0; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .form-group-full { grid-column:span 2; }
+    .form-label { display:block; font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px; }
+    .form-input, .form-select, .form-textarea {
+      width:100%; padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+      border-radius:8px; color:#fff; font-size:13px; font-family:'Inter',sans-serif; box-sizing:border-box; transition:var(--transition);
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline:none; border-color:rgba(0,212,255,0.5); background:rgba(0,212,255,0.05); box-shadow:0 0 0 3px rgba(0,212,255,0.1);
+    }
+    .form-select option { background:#1a1d2e; }
+    .form-textarea { resize:vertical; min-height:70px; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+    .btn-primary { background:linear-gradient(135deg,#00d4ff,#0077b6); border:none; border-radius:8px; color:#fff; padding:10px 20px; font-size:13px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; transition:var(--transition); }
+    .btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(0,212,255,0.3); }
+    .btn-ghost { background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--text-muted); padding:10px 20px; font-size:13px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; transition:var(--transition); }
+    .btn-ghost:hover { border-color:var(--border-accent); color:#fff; }
+    .action-btn { background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:6px; font-size:13px; transition:var(--transition); }
+    .action-btn:hover { background:var(--bg-hover); color:#fff; }
+    .schedule-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+    .schedule-item { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:14px; }
+    .sch-task { font-size:13px; font-weight:600; color:#fff; margin-bottom:6px; }
+    .sch-due { font-size:11px; color:var(--text-muted); margin-bottom:8px; }
+    .btn-add { background:linear-gradient(135deg,rgba(0,212,255,0.2),rgba(0,119,182,0.2)); border:1px solid var(--border-accent); color:var(--accent); padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; transition:var(--transition); }
+    .btn-add:hover { background:linear-gradient(135deg,rgba(0,212,255,0.3),rgba(0,119,182,0.3)); }
+    .empty-state { text-align:center; padding:40px; color:var(--text-muted); font-size:13px; }
+  </style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">⚡</div>
+    <div class="logo-text"><span class="logo-name">PREDICTA</span><span class="logo-tag">v1.0 Industrial</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Monitoring</div>
+    <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Live Dashboard</a>
+    <a href="analytics.html" class="nav-item"><span class="nav-icon">◉</span> Analytics</a>
+    <a href="maintenance.html" class="nav-item active"><span class="nav-icon">◫</span> Maintenance</a>
+    <div class="nav-section-label" style="margin-top:24px">Management</div>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">◧</span> Reports</a>
+    <a href="admin.html" class="nav-item"><span class="nav-icon">◩</span> Admin</a>
+  </nav>
+  <div class="sidebar-machine">
+    <div class="machine-label">Active Machine</div>
+    <div class="machine-id">MOTOR_01</div>
+    <div class="machine-type">3φ Induction Motor + Pump</div>
+    <div class="machine-status"><span class="status-dot online"></span><span>Running</span></div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Maintenance</h1>
+      <div class="breadcrumb">Predictive & Scheduled Maintenance Management</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-time" id="topbar-clock">--:--:--</div>
+      <button class="btn-add" onclick="openModal()">+ Log Maintenance</button>
+      <div class="user-pill">
+        <span class="user-avatar">A</span>
+        <span class="user-name" id="user-name">Admin</span>
+      </div>
+      <button class="btn-icon" onclick="logout()">⏻</button>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Downtime (Hrs)</div>
+      <div class="stat-val" id="stat-downtime">--</div>
+      <div style="font-size:11px;color:var(--text-muted)">This period</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Maintenance Cost</div>
+      <div class="stat-val" id="stat-cost" style="color:var(--yellow)">₹--</div>
+      <div style="font-size:11px;color:var(--text-muted)">Total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Predictive Actions</div>
+      <div class="stat-val" id="stat-predictive" style="color:var(--green)">--</div>
+      <div style="font-size:11px;color:var(--text-muted)">ML-triggered</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avoided Loss (Est.)</div>
+      <div class="stat-val" id="stat-avoided" style="color:var(--purple)">₹--</div>
+      <div style="font-size:11px;color:var(--text-muted)">By early detection</div>
+    </div>
+  </div>
+
+  <!-- AI Maintenance Schedule -->
+  <div class="section-header">
+    <div class="section-badge">AI SCHEDULE</div>
+    <h2 class="section-title">ML-Recommended Maintenance Schedule</h2>
+  </div>
+  <div class="schedule-grid" id="schedule-grid">
+    <div class="loading-text" style="grid-column:span 3">Loading schedule…</div>
+  </div>
+
+  <!-- Maintenance Log Table -->
+  <div class="section-header">
+    <div class="section-badge" style="background:linear-gradient(135deg,rgba(168,85,247,0.2),rgba(109,40,217,0.2))">HISTORY</div>
+    <h2 class="section-title">Maintenance Log</h2>
+  </div>
+  <div class="table-card">
+    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center">
+      <span class="panel-title">All Maintenance Records</span>
+      <span id="log-count" style="font-size:11px;color:var(--text-muted)">-- records</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Task / Description</th><th>Type</th><th>Priority</th><th>Status</th>
+            <th>Performed By</th><th>Date</th><th>Downtime</th><th>Cost (₹)</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody"><tr><td colspan="9" class="empty-state">No maintenance records found.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Active Faults requiring maintenance -->
+  <div class="section-header">
+    <div class="section-badge" style="background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,140,0,0.2))">FAULTS</div>
+    <h2 class="section-title">Active Faults Requiring Attention</h2>
+  </div>
+  <div class="table-card">
+    <div class="panel-header"><span class="panel-title">Open Fault Events</span></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr><th>Fault Type</th><th>Severity</th><th>Root Cause</th><th>Occurred At</th><th>RUL</th><th>Recommendation</th><th>Action</th></tr>
+        </thead>
+        <tbody id="faults-tbody"><tr><td colspan="7" class="empty-state">No active faults.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Add Maintenance Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">📋 Log Maintenance Record</div>
+    <form id="maint-form" onsubmit="submitMaintenance(event)">
+      <div class="form-grid">
+        <div class="form-group form-group-full">
+          <label class="form-label">Task / Description</label>
+          <input type="text" class="form-input" id="f-desc" placeholder="e.g. Bearing replacement, Oil change…" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Maintenance Type</label>
+          <select class="form-select" id="f-type">
+            <option>Predictive</option><option>Preventive</option>
+            <option>Corrective</option><option>Condition-Based</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-select" id="f-priority">
+            <option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="f-status">
+            <option>SCHEDULED</option><option value="IN_PROGRESS">IN PROGRESS</option><option>COMPLETED</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Performed By</label>
+          <input type="text" class="form-input" id="f-by" placeholder="Engineer name"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scheduled Date</label>
+          <input type="date" class="form-input" id="f-sched"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Completed Date</label>
+          <input type="date" class="form-input" id="f-completed"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Downtime (hours)</label>
+          <input type="number" class="form-input" id="f-downtime" placeholder="0" step="0.5" min="0"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cost (₹)</label>
+          <input type="number" class="form-input" id="f-cost" placeholder="0" min="0"/>
+        </div>
+        <div class="form-group form-group-full">
+          <label class="form-label">Parts Replaced</label>
+          <input type="text" class="form-input" id="f-parts" placeholder="e.g. Bearing 6205, Lubricant 500ml"/>
+        </div>
+        <div class="form-group form-group-full">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="f-notes" placeholder="Additional observations…"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn-primary" id="btn-save">Save Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="js/api.js"></script>
+<script>
+const DEVICE = "MOTOR_01";
+window.addEventListener("DOMContentLoaded", () => {
+  if (!API.getToken()) { window.location.href = "login.html"; return; }
+  const u = API.getUser();
+  if (u) document.getElementById("user-name").textContent = u.username;
+  setInterval(() => {
+    document.getElementById("topbar-clock").textContent = new Date().toLocaleTimeString("en-IN",{hour12:false});
+  }, 1000);
+  // Set default date
+  document.getElementById("f-sched").value = new Date().toISOString().split("T")[0];
+  loadAll();
+});
+
+async function loadAll() { loadStats(); loadSchedule(); loadLogs(); loadFaults(); }
+
+async function loadStats() {
+  const d = await API.get(`/analytics/downtime/${DEVICE}`);
+  if (!d || d.error) return;
+  document.getElementById("stat-downtime").textContent  = (d.total_downtime_hours||0).toFixed(1);
+  document.getElementById("stat-cost").textContent      = "₹"+(d.total_maintenance_cost_inr||0).toLocaleString("en-IN");
+  document.getElementById("stat-predictive").textContent= d.predictive_actions||0;
+  document.getElementById("stat-avoided").textContent   = "₹"+(d.estimated_avoided_loss_inr||0).toLocaleString("en-IN");
+}
+
+async function loadSchedule() {
+  const d = await API.getSchedule(DEVICE);
+  const grid = document.getElementById("schedule-grid");
+  const items = d && d.schedule ? d.schedule : [];
+  if (!items.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:span 3">No scheduled maintenance items.</div>'; return; }
+  grid.innerHTML = items.map(item => `
+    <div class="schedule-item">
+      <div style="margin-bottom:8px"><span class="maint-priority ${item.priority}">${item.priority}</span></div>
+      <div class="sch-task">${item.task}</div>
+      <div class="sch-due">Due in <strong style="color:var(--accent)">${item.due_in_days||"?"} days</strong></div>
+      <div style="font-size:11px;color:var(--text-muted)">${item.description||""}</div>
+    </div>`).join("");
+}
+
+async function loadLogs() {
+  const d = await API.get(`/predict/maintenance-logs/${DEVICE}`);
+  const logs = Array.isArray(d) ? d : [];
+  document.getElementById("log-count").textContent = logs.length + " records";
+  const tbody = document.getElementById("log-tbody");
+  if (!logs.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No maintenance records. Click "+ Log Maintenance" to add one.</td></tr>'; return; }
+  tbody.innerHTML = logs.map(l => `
+    <tr>
+      <td>${l.description||"—"}</td>
+      <td><span style="font-size:11px;color:var(--text-dim)">${l.maintenance_type||"—"}</span></td>
+      <td><span class="badge badge-${(l.priority||"low").toLowerCase()}">${l.priority||"—"}</span></td>
+      <td><span class="badge badge-${(l.status||"scheduled").toLowerCase().replace(" ","-")}">${l.status||"—"}</span></td>
+      <td>${l.performed_by||"—"}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${l.scheduled_date||"—"}</td>
+      <td>${l.downtime_hours||0}h</td>
+      <td>₹${(l.cost_inr||0).toLocaleString("en-IN")}</td>
+      <td><button class="action-btn" onclick="markDone(${l.id})">✓ Done</button></td>
+    </tr>`).join("");
+}
+
+async function loadFaults() {
+  const d = await API.getFaults(DEVICE);
+  const faults = Array.isArray(d) ? d : [];
+  const tbody = document.getElementById("faults-tbody");
+  if (!faults.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state">✅ No active faults.</td></tr>'; return; }
+  tbody.innerHTML = faults.map(f => `
+    <tr>
+      <td>${f.fault_type||"—"}</td>
+      <td><span class="badge badge-${(f.severity||"low").toLowerCase()}">${f.severity||"—"}</span></td>
+      <td style="max-width:220px;font-size:11px">${f.root_cause||"—"}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${f.occurred_at ? new Date(f.occurred_at).toLocaleDateString("en-IN") : "—"}</td>
+      <td>${f.rul_days ? f.rul_days+" days" : "—"}</td>
+      <td style="max-width:200px;font-size:11px">${f.recommendation||"—"}</td>
+      <td><button class="action-btn" style="color:var(--green)" onclick="acknowledgeFault(${f.id})">✓ Ack</button></td>
+    </tr>`).join("");
+}
+
+async function submitMaintenance(e) {
+  e.preventDefault();
+  const btn = document.getElementById("btn-save");
+  btn.disabled = true; btn.textContent = "Saving…";
+  const payload = {
+    device_id:        DEVICE,
+    description:      document.getElementById("f-desc").value,
+    maintenance_type: document.getElementById("f-type").value,
+    priority:         document.getElementById("f-priority").value,
+    status:           document.getElementById("f-status").value,
+    performed_by:     document.getElementById("f-by").value,
+    scheduled_date:   document.getElementById("f-sched").value,
+    completed_date:   document.getElementById("f-completed").value || null,
+    downtime_hours:   parseFloat(document.getElementById("f-downtime").value)||0,
+    cost_inr:         parseFloat(document.getElementById("f-cost").value)||0,
+    parts_replaced:   document.getElementById("f-parts").value,
+    notes:            document.getElementById("f-notes").value,
+  };
+  const res = await API.post("/predict/maintenance-log", payload);
+  btn.disabled = false; btn.textContent = "Save Record";
+  if (res && !res.error) {
+    showToast("success","Saved","Maintenance record added.");
+    closeModal(); loadAll();
+  } else {
+    showToast("error","Error", res?.error || "Failed to save.");
+  }
+}
+
+async function markDone(id) {
+  const res = await API.patch(`/predict/maintenance-log/${id}`, {status:"COMPLETED", completed_date: new Date().toISOString().split("T")[0]});
+  if (res && !res.error) { showToast("success","Updated","Marked as Completed."); loadLogs(); }
+  else showToast("error","Error", res?.error||"Failed.");
+}
+
+async function acknowledgeFault(id) {
+  const res = await API.patch(`/predict/fault/${id}/acknowledge`, {});
+  if (res && !res.error) { showToast("success","Acknowledged","Fault acknowledged."); loadFaults(); }
+  else showToast("error","Error", res?.error||"Failed.");
+}
+
+function openModal()  { document.getElementById("modal-overlay").classList.add("open"); }
+function closeModal() { document.getElementById("modal-overlay").classList.remove("open"); document.getElementById("maint-form").reset(); }
+function logout() { API.clearTokens(); window.location.href = "login.html"; }
+function showToast(type,title,msg){
+  const icons={success:"✅",error:"🔴",warning:"⚠️",info:"ℹ️"};
+  const tc=document.getElementById("toast-container");
+  const t=document.createElement("div");
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span class="toast-icon">${icons[type]}</span><div><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>`;
+  tc.appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},4000);
+}
+</script>
+</body>
+</html>

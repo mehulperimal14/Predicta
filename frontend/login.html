@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PREDICTA – Login</title>
+  <meta name="description" content="PREDICTA Industrial Machine Health Monitoring System – Secure Login"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh;
+           background: radial-gradient(ellipse at 30% 30%, #0d1f3c 0%, #050810 60%, #0a0e1a 100%);
+           overflow:hidden; }
+
+    .login-bg {
+      position:fixed; inset:0; z-index:0;
+      background: radial-gradient(ellipse at 30% 30%, rgba(0,212,255,0.08) 0%, transparent 60%),
+                  radial-gradient(ellipse at 70% 70%, rgba(109,40,217,0.08) 0%, transparent 60%);
+    }
+
+    .login-particles { position:fixed; inset:0; z-index:0; overflow:hidden; }
+    .particle {
+      position:absolute; width:2px; height:2px; background:rgba(0,212,255,0.3);
+      border-radius:50%; animation: float-up linear infinite;
+    }
+
+    @keyframes float-up {
+      0%   { transform:translateY(100vh) scale(0); opacity:0; }
+      10%  { opacity:1; }
+      90%  { opacity:0.5; }
+      100% { transform:translateY(-100px) scale(1); opacity:0; }
+    }
+
+    .login-wrapper {
+      position:relative; z-index:1;
+      display:grid; grid-template-columns:1fr 1fr;
+      width:900px; min-height:520px;
+      background:rgba(15,17,30,0.95);
+      border:1px solid rgba(0,212,255,0.15);
+      border-radius:20px;
+      box-shadow:0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(0,212,255,0.08);
+      overflow:hidden;
+      backdrop-filter:blur(20px);
+    }
+
+    .login-left {
+      background: linear-gradient(135deg, #0a1628 0%, #0d2040 50%, #071220 100%);
+      padding:48px 40px;
+      display:flex; flex-direction:column; justify-content:center;
+      position:relative; overflow:hidden;
+    }
+
+    .login-left::before {
+      content:''; position:absolute; inset:-1px;
+      background:linear-gradient(135deg,rgba(0,212,255,0.1),transparent 60%);
+      border-radius:inherit; pointer-events:none;
+    }
+
+    .login-brand { display:flex; align-items:center; gap:12px; margin-bottom:32px; }
+    .login-brand-icon {
+      width:52px; height:52px; border-radius:14px;
+      background:linear-gradient(135deg,#00d4ff,#0077b6);
+      display:flex; align-items:center; justify-content:center;
+      font-size:24px;
+      box-shadow:0 8px 24px rgba(0,212,255,0.3);
+    }
+    .login-brand-name { font-size:28px; font-weight:800; color:#fff; letter-spacing:-0.5px; }
+    .login-brand-tag  { font-size:11px; color:#00d4ff; letter-spacing:2px; text-transform:uppercase; }
+
+    .login-tagline { font-size:15px; color:rgba(255,255,255,0.6); line-height:1.7; margin-bottom:32px; }
+
+    .login-features { display:flex; flex-direction:column; gap:14px; }
+    .login-feature { display:flex; align-items:center; gap:12px; }
+    .login-feature-icon { font-size:18px; }
+    .login-feature-text { font-size:13px; color:rgba(255,255,255,0.7); }
+
+    .login-right { padding:48px 40px; display:flex; flex-direction:column; justify-content:center; }
+
+    .login-form-title {
+      font-size:22px; font-weight:700; color:#fff; margin:0 0 6px 0;
+    }
+    .login-form-sub { font-size:13px; color:#6b7280; margin:0 0 32px 0; }
+
+    .form-group { margin-bottom:20px; }
+    .form-label { display:block; font-size:12px; font-weight:600; color:#aaa;
+                  text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; }
+
+    .form-input {
+      width:100%; padding:12px 16px;
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:10px; color:#fff;
+      font-size:14px; font-family:'Inter',sans-serif;
+      transition:all 0.2s ease;
+      box-sizing:border-box;
+    }
+    .form-input:focus {
+      outline:none;
+      border-color:rgba(0,212,255,0.5);
+      background:rgba(0,212,255,0.05);
+      box-shadow:0 0 0 3px rgba(0,212,255,0.1);
+    }
+
+    .form-input-wrap { position:relative; }
+    .form-input-icon {
+      position:absolute; left:14px; top:50%; transform:translateY(-50%);
+      color:#6b7280; font-size:16px; pointer-events:none;
+    }
+    .form-input.has-icon { padding-left:42px; }
+
+    .btn-login {
+      width:100%; padding:14px;
+      background:linear-gradient(135deg,#00d4ff,#0077b6);
+      border:none; border-radius:10px; color:#fff;
+      font-size:15px; font-weight:600; font-family:'Inter',sans-serif;
+      cursor:pointer; letter-spacing:0.3px;
+      transition:all 0.2s ease;
+      box-shadow:0 4px 20px rgba(0,212,255,0.3);
+      margin-top:8px;
+    }
+    .btn-login:hover {
+      transform:translateY(-1px);
+      box-shadow:0 8px 28px rgba(0,212,255,0.4);
+    }
+    .btn-login:active { transform:translateY(0); }
+    .btn-login:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+
+    .form-error {
+      background:rgba(255,68,68,0.1); border:1px solid rgba(255,68,68,0.3);
+      border-radius:8px; padding:10px 14px;
+      color:#ff4444; font-size:13px; margin-bottom:16px;
+      display:none;
+    }
+    .form-error.show { display:block; }
+
+    .demo-creds {
+      margin-top:20px; padding:12px 14px;
+      background:rgba(0,212,255,0.05); border:1px solid rgba(0,212,255,0.15);
+      border-radius:8px;
+    }
+    .demo-creds-title { font-size:11px; color:#00d4ff; font-weight:600; margin-bottom:6px; }
+    .demo-creds-row { font-size:12px; color:#6b7280; }
+    .demo-creds-val { color:#aaa; font-family:'JetBrains Mono',monospace; }
+
+    @media (max-width:700px) {
+      .login-wrapper { grid-template-columns:1fr; width:calc(100vw - 32px); }
+      .login-left { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-bg"></div>
+  <div class="login-particles" id="particles"></div>
+
+  <div class="login-wrapper">
+    <!-- Left Panel -->
+    <div class="login-left">
+      <div class="login-brand">
+        <div class="login-brand-icon">⚡</div>
+        <div>
+          <div class="login-brand-name">PREDICTA</div>
+          <div class="login-brand-tag">Industrial IoT Platform</div>
+        </div>
+      </div>
+
+      <p class="login-tagline">
+        AI-Based Industrial Machine Health Monitoring and Predictive Maintenance System for 3-Phase Motor + Pump Systems.
+      </p>
+
+      <div class="login-features">
+        <div class="login-feature">
+          <span class="login-feature-icon">📊</span>
+          <span class="login-feature-text">Real-time sensor monitoring via ESP32 + MQTT</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">🤖</span>
+          <span class="login-feature-text">Random Forest ML fault prediction</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">🔔</span>
+          <span class="login-feature-text">Instant Email + Telegram alerts</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">🏭</span>
+          <span class="login-feature-text">PLC-integrated via Modbus TCP/RTU</span>
+        </div>
+        <div class="login-feature">
+          <span class="login-feature-icon">📑</span>
+          <span class="login-feature-text">Auto-generated PDF maintenance reports</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel (Login Form) -->
+    <div class="login-right">
+      <h2 class="login-form-title">Welcome Back</h2>
+      <p class="login-form-sub">Sign in to your PREDICTA account</p>
+
+      <div class="form-error" id="login-error"></div>
+
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <div class="form-input-wrap">
+            <span class="form-input-icon">👤</span>
+            <input type="text" id="username" class="form-input has-icon"
+                   placeholder="Enter username" autocomplete="username" required/>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <div class="form-input-wrap">
+            <span class="form-input-icon">🔒</span>
+            <input type="password" id="password" class="form-input has-icon"
+                   placeholder="Enter password" autocomplete="current-password" required/>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login" id="btn-login">
+          Sign In to PREDICTA
+        </button>
+      </form>
+
+      <div class="demo-creds">
+        <div class="demo-creds-title">DEMO CREDENTIALS</div>
+        <div class="demo-creds-row">Username: <span class="demo-creds-val">admin</span></div>
+        <div class="demo-creds-row">Password: <span class="demo-creds-val">Predicta@2024</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Generate particles
+    const pc = document.getElementById("particles");
+    for (let i = 0; i < 30; i++) {
+      const p = document.createElement("div");
+      p.className = "particle";
+      p.style.left = Math.random()*100 + "vw";
+      p.style.animationDuration = (4 + Math.random()*8) + "s";
+      p.style.animationDelay = (Math.random()*6) + "s";
+      p.style.width = p.style.height = (1 + Math.random()*2) + "px";
+      pc.appendChild(p);
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById("btn-login");
+      const errorEl = document.getElementById("login-error");
+      errorEl.classList.remove("show");
+      btn.disabled = true;
+      btn.textContent = "Signing in…";
+
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      const result = await API.login(username, password);
+      if (result.success) {
+        btn.textContent = "✓ Authenticated";
+        setTimeout(() => { window.location.href = "index.html"; }, 500);
+      } else {
+        errorEl.textContent = result.error || "Login failed. Check credentials.";
+        errorEl.classList.add("show");
+        btn.disabled = false;
+        btn.textContent = "Sign In to PREDICTA";
+      }
+    }
+
+    // Redirect if already logged in
+    if (API.getToken()) {
+      window.location.href = "index.html";
+    }
+  </script>
+</body>
+</html>

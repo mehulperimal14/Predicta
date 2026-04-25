@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PREDICTA – Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    .panel-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .panel-header-sm { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
+    .form-input, .form-select { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 13px; font-family: 'Inter', sans-serif; transition: var(--transition); }
+    .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); background: rgba(0,212,255,0.05); }
+    .btn-save { background: linear-gradient(135deg, #00d4ff, #0077b6); border: none; border-radius: 8px; color: #fff; padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,212,255,0.3); }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th { text-align: left; padding: 10px; font-size: 10px; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+    td { padding: 10px; font-size: 13px; color: var(--text-dim); border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .badge { padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">⚡</div>
+    <div class="logo-text"><span class="logo-name">PREDICTA</span><span class="logo-tag">v1.0 Industrial</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Monitoring</div>
+    <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Live Dashboard</a>
+    <a href="analytics.html" class="nav-item"><span class="nav-icon">◉</span> Analytics</a>
+    <a href="maintenance.html" class="nav-item"><span class="nav-icon">◫</span> Maintenance</a>
+    <div class="nav-section-label" style="margin-top:24px">Management</div>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">◧</span> Reports</a>
+    <a href="admin.html" class="nav-item active"><span class="nav-icon">◩</span> Admin</a>
+  </nav>
+  <div class="sidebar-machine">
+    <div class="machine-label">Active Machine</div>
+    <div class="machine-id">MOTOR_01</div>
+    <div class="machine-type">3φ Induction Motor + Pump</div>
+    <div class="machine-status"><span class="status-dot online"></span><span>Running</span></div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Administration</h1>
+      <div class="breadcrumb">System Configuration / Thresholds / Users</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-time" id="topbar-clock">--:--:--</div>
+      <div class="user-pill"><span class="user-avatar">A</span><span class="user-name" id="user-name">Admin</span></div>
+      <button class="btn-icon" onclick="logout()">⏻</button>
+    </div>
+  </header>
+
+  <div class="admin-grid">
+    <!-- Machine Thresholds -->
+    <div class="panel-card">
+      <div class="panel-header-sm">
+        <span>⚙️ Alarm Thresholds</span>
+        <button class="btn-save" onclick="saveThresholds()">Save Changes</button>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="form-group"><label class="form-label">Min Voltage (V)</label><input type="number" id="t-vmin" class="form-input" value="380"></div>
+        <div class="form-group"><label class="form-label">Max Voltage (V)</label><input type="number" id="t-vmax" class="form-input" value="440"></div>
+        <div class="form-group"><label class="form-label">Full Load Current (A)</label><input type="number" id="t-iflc" class="form-input" value="3.5" step="0.1"></div>
+        <div class="form-group"><label class="form-label">Overload Current (A)</label><input type="number" id="t-imax" class="form-input" value="4.5" step="0.1"></div>
+        <div class="form-group"><label class="form-label">Temp Warning (°C)</label><input type="number" id="t-twarn" class="form-input" value="75"></div>
+        <div class="form-group"><label class="form-label">Temp Critical (°C)</label><input type="number" id="t-tcrit" class="form-input" value="85"></div>
+        <div class="form-group"><label class="form-label">Vibration Warn (g)</label><input type="number" id="t-vwarn" class="form-input" value="0.5" step="0.1"></div>
+        <div class="form-group"><label class="form-label">Vibration Crit (g)</label><input type="number" id="t-vcrit" class="form-input" value="1.0" step="0.1"></div>
+      </div>
+    </div>
+
+    <!-- Alert Configuration -->
+    <div class="panel-card">
+      <div class="panel-header-sm">
+        <span>🔔 Notification Settings</span>
+        <button class="btn-save" onclick="saveAlertSettings()">Save Changes</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Recipients (comma separated)</label>
+        <input type="text" id="a-emails" class="form-input" value="engineer@predicta.local, manager@predicta.local">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telegram Chat ID</label>
+        <input type="text" id="a-chatid" class="form-input" value="-100123456789">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Alert Cooldown (minutes)</label>
+        <input type="number" id="a-cooldown" class="form-input" value="15">
+      </div>
+      <div style="margin-top:20px; font-size:12px; color:var(--text-muted);">
+        * Note: SMTP credentials must be configured in the backend .env file.
+      </div>
+    </div>
+  </div>
+
+  <!-- User Management -->
+  <div class="panel-card">
+    <div class="panel-header-sm">
+      <span>👥 User Management</span>
+    </div>
+    <table>
+      <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th></tr></thead>
+      <tbody id="user-tbody">
+        <tr><td>admin</td><td>admin@predicta.local</td><td><span class="badge" style="background:rgba(0,212,255,0.2);color:var(--accent)">ADMIN</span></td><td><span style="color:var(--green)">Active</span></td><td>Just now</td></tr>
+        <tr><td>engineer</td><td>engineer@predicta.local</td><td><span class="badge" style="background:rgba(255,140,0,0.2);color:var(--orange)">ENGINEER</span></td><td><span style="color:var(--green)">Active</span></td><td>2 days ago</td></tr>
+        <tr><td>operator</td><td>operator@predicta.local</td><td><span class="badge" style="background:rgba(168,85,247,0.2);color:var(--purple)">OPERATOR</span></td><td><span style="color:var(--green)">Active</span></td><td>5 hours ago</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="js/api.js"></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  if (!API.getToken()) { window.location.href = "login.html"; return; }
+  const u = API.getUser();
+  if (u) document.getElementById("user-name").textContent = u.username;
+  if (u && u.role !== "admin") {
+    showToast("error", "Access Denied", "Only administrators can view this page.");
+    setTimeout(() => { window.location.href = "index.html"; }, 2000);
+  }
+  setInterval(() => { document.getElementById("topbar-clock").textContent = new Date().toLocaleTimeString("en-IN",{hour12:false}); }, 1000);
+});
+
+function saveThresholds() {
+  showToast("success", "Saved", "Alarm thresholds updated successfully.");
+}
+function saveAlertSettings() {
+  showToast("success", "Saved", "Notification settings updated successfully.");
+}
+function logout() { API.clearTokens(); window.location.href = "login.html"; }
+function showToast(type,title,msg){
+  const icons={success:"✅",error:"🔴",warning:"⚠️",info:"ℹ️"};
+  const tc=document.getElementById("toast-container");
+  const t=document.createElement("div");
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span class="toast-icon">${icons[type]}</span><div><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>`;
+  tc.appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},4000);
+}
+</script>
+</body>
+</html>
