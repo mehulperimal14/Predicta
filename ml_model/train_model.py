@@ -145,6 +145,7 @@ def load_custom_dataset(path: str) -> tuple:
     # Encode string labels
     le = LabelEncoder()
     y = le.fit_transform(df[label_col].fillna("Normal"))
+    os.makedirs(MODEL_OUTPUT_DIR, exist_ok=True)
     joblib.dump(le, os.path.join(MODEL_OUTPUT_DIR, "label_encoder.pkl"))
     print(f"[DATA] Label classes: {le.classes_}")
 
@@ -307,7 +308,7 @@ def print_feature_importance(rf_model, feature_names):
     for i, idx in enumerate(indices):
         if i >= len(feature_names):
             break
-        bar = "█" * int(importances[idx] * 50)
+        bar = "#" * int(importances[idx] * 50)
         print(f"  {i+1:2d}. {feature_names[idx]:<35} {importances[idx]:.4f} {bar}")
 
 
@@ -321,7 +322,7 @@ def model_comparison(results):
     for name, res in results.items():
         if "accuracy" in res:
             print(f"  {name:<25} {res['accuracy']:>10.4f} {res['f1']:>10.4f}")
-    print("\n  ✅ Random Forest selected as primary model (best F1 + interpretability)")
+    print("\n  [OK] Random Forest selected as primary model (best F1 + interpretability)")
 
 
 def main():
@@ -346,6 +347,7 @@ def main():
 
     # Feature engineering
     X = feature_engineering(X)
+    X.columns = [c.replace("[", "").replace("]", "").replace("<", "").replace(">", "").strip() for c in X.columns]
     feature_names = list(X.columns)
 
     print(f"\n[DATA] Dataset shape: {X.shape}")
@@ -377,7 +379,7 @@ def main():
     save_models(results, scaler, feature_names)
 
     print("\n" + "="*60)
-    print("  ✅ Training Complete!")
+    print("  [OK] Training Complete!")
     print(f"  Random Forest Accuracy: {results['random_forest']['accuracy']*100:.2f}%")
     print(f"  F1 Score: {results['random_forest']['f1']*100:.2f}%")
     print(f"  Models saved to: {MODEL_OUTPUT_DIR}/")

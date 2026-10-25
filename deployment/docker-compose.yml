@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  # ── PostgreSQL Database ─────────────────────────────────────────────────
+  # ── PostgreSQL Database ─────────────────────────────────────────────────────
   db:
     image: postgres:15-alpine
     container_name: predicta_db
@@ -18,87 +18,44 @@ services:
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "predicta"]
       interval: 10s
+      timeout: 5s
       retries: 5
 
-  # ── MQTT Broker (Mosquitto) ─────────────────────────────────────────────
-  mqtt:
-    image: eclipse-mosquitto:2.0
-    container_name: predicta_mqtt
-    restart: unless-stopped
-    ports:
-      - "1883:1883"
-      - "9001:9001"   # WebSocket MQTT
-    volumes:
-      - ./deployment/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - mqtt_data:/mosquitto/data
-      - mqtt_logs:/mosquitto/log
-
-  # ── Flask Backend ───────────────────────────────────────────────────────
-  backend:
+  # ── Predicta 2.0 Web Platform (Unified Backend & Frontend) ──────────────────
+  web:
     build:
-      context: ./backend
-      dockerfile: ../deployment/Dockerfile.backend
-    container_name: predicta_backend
+      context: ..
+      dockerfile: Dockerfile
+    container_name: predicta_web
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-      mqtt:
-        condition: service_started
     environment:
-      DATABASE_URL:    postgresql://predicta:predicta123@db:5432/predicta_db
-      MQTT_BROKER_HOST: mqtt
-      MQTT_BROKER_PORT: 1883
-      SECRET_KEY:      ${SECRET_KEY:-predicta-production-secret}
-      JWT_SECRET_KEY:  ${JWT_SECRET_KEY:-predicta-jwt-production-secret}
-      SMTP_SERVER:     ${SMTP_SERVER:-smtp.gmail.com}
-      SMTP_PORT:       ${SMTP_PORT:-587}
-      SMTP_USERNAME:   ${SMTP_USERNAME}
-      SMTP_PASSWORD:   ${SMTP_PASSWORD}
-      ALERT_FROM:      ${ALERT_FROM}
-      ALERT_EMAILS:    ${ALERT_EMAILS}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_CHAT_ID:   ${TELEGRAM_CHAT_ID}
+      DATABASE_URL:          postgresql://predicta:predicta123@db:5432/predicta_db
+      SECRET_KEY:            ${SECRET_KEY:-predicta-production-secret-key-32bytes}
+      JWT_SECRET_KEY:        ${JWT_SECRET_KEY:-predicta-jwt-production-secret-key-32bytes}
+      TELEGRAM_BOT_TOKEN:    ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID:      ${TELEGRAM_CHAT_ID}
+      TWILIO_ACCOUNT_SID:    ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN:     ${TWILIO_AUTH_TOKEN}
+      TWILIO_FROM_NUMBER:    ${TWILIO_FROM_NUMBER}
+      ALERT_SMS_RECIPIENTS:  ${ALERT_SMS_RECIPIENTS}
+      NOTIFICATION_MOCK_MODE: ${NOTIFICATION_MOCK_MODE:-True}
+      ALLOW_HISTORICAL_REPLAY: ${ALLOW_HISTORICAL_REPLAY:-False}
+      UPLOAD_FOLDER:         /app/backend/uploads
     ports:
       - "5000:5000"
     volumes:
+      - uploads_data:/app/backend/uploads
       - ./ml_model/saved_models:/app/ml_model/saved_models
       - ./reports:/app/reports
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/auth/me"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 20s
       timeout: 10s
       retries: 3
 
-  # ── Frontend (Nginx) ────────────────────────────────────────────────────
-  frontend:
-    image: nginx:alpine
-    container_name: predicta_frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "80:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html
-      - ./deployment/nginx.conf:/etc/nginx/conf.d/default.conf
-
-  # ── Node-RED SCADA ──────────────────────────────────────────────────────
-  nodered:
-    image: nodered/node-red:3.1
-    container_name: predicta_nodered
-    restart: unless-stopped
-    depends_on:
-      - mqtt
-      - backend
-    ports:
-      - "1880:1880"
-    volumes:
-      - nodered_data:/data
-      - ./scada_files:/data/flows
-
 volumes:
   pg_data:
-  mqtt_data:
-  mqtt_logs:
-  nodered_data:
+  uploads_data:

@@ -1,0 +1,27 @@
+{
+  "trained_at": "2026-06-01T23:57:52.081326",
+  "primary_model": "RandomForestClassifier",
+  "rf_accuracy": 1.0,
+  "rf_f1_score": 1.0,
+  "xgb_accuracy": 0.999375,
+  "svm_accuracy": 0.7625,
+  "feature_count": 16,
+  "features": [
+    "voltage",
+    "current",
+    "motor_temp",
+    "bearing_temp",
+    "vibration_rms",
+    "rpm",
+    "pressure",
+    "power_factor",
+    "humidity",
+    "ambient_temp",
+    "current_ratio",
+    "temp_rise",
+    "bearing_rise",
+    "rpm_slip",
+    "power_kw",
+    "vib_cat"
+  ]
+}

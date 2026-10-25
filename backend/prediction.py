@@ -7,6 +7,7 @@ import os
 import joblib
 import numpy as np
 from datetime import datetime
+from typing import Optional
 
 from preprocess import build_ml_features, detect_anomalies, compute_severity_score
 
@@ -55,8 +56,9 @@ def _load_model():
     if _model_loaded:
         return
 
-    model_path  = os.path.join("ml_model", "saved_models", "random_forest_model.pkl")
-    scaler_path = os.path.join("ml_model", "saved_models", "scaler.pkl")
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    model_path  = os.path.join(base_dir, "ml_model", "saved_models", "random_forest_model.pkl")
+    scaler_path = os.path.join(base_dir, "ml_model", "saved_models", "scaler.pkl")
 
     if os.path.exists(model_path) and os.path.exists(scaler_path):
         _model  = joblib.load(model_path)
@@ -195,20 +197,16 @@ def _rule_based_fallback(result: dict, reading: dict, anomalies: list):
     })
 
 
-def _estimate_rul(reading: dict, failure_prob: float) -> float:
+def _estimate_rul(reading: dict, failure_prob: float) -> Optional[float]:
     """
-    Estimate Remaining Useful Life in days.
-    Simple exponential degradation model.
+    RUL estimation is optional and strictly guarded:
+    Returns None when validated degradation trajectory or run-to-failure cycles are not provided.
     """
-    if failure_prob >= 0.95:
-        return 0.5
-    elif failure_prob >= 0.80:
-        return 2.0
-    elif failure_prob >= 0.60:
-        return 7.0
-    elif failure_prob >= 0.40:
-        return 14.0
-    elif failure_prob >= 0.20:
-        return 30.0
-    else:
-        return 90.0 + (1 - failure_prob) * 275  # Up to 365 days
+    # If run_hours and validated degradation rate exist in reading:
+    if reading.get("has_validated_degradation") and reading.get("degradation_rate_per_hour"):
+        # Extrapolate linear / exponential bounds
+        remaining = (1.0 - failure_prob) / max(0.0001, reading["degradation_rate_per_hour"])
+        return round(remaining / 24.0, 1)
+    # Default honest industrial standard: RUL is unavailable without historical run-to-failure profiles
+    return None
+

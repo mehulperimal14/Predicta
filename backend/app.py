@@ -19,8 +19,12 @@ socketio = SocketIO()
 
 
 def create_app(config_class=Config):
-    app = Flask(__name__)
+    frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
+    app = Flask(__name__, static_folder=frontend_dir, static_url_path="")
     app.config.from_object(config_class)
+
+    # Ensure upload directory exists
+    os.makedirs(app.config.get("UPLOAD_FOLDER", os.path.join(os.path.dirname(__file__), "uploads")), exist_ok=True)
 
     # Extensions
     db.init_app(app)
@@ -29,24 +33,44 @@ def create_app(config_class=Config):
     socketio.init_app(app, cors_allowed_origins="*", async_mode="threading")
 
     # Register Blueprints
-    from routes.auth_routes      import auth_bp
-    from routes.sensor_routes    import sensor_bp
-    from routes.prediction_routes import prediction_bp
-    from routes.alert_routes     import alert_bp
-    from routes.analytics_routes import analytics_bp
-    from routes.report_routes    import report_bp
+    from routes.auth_routes         import auth_bp
+    from routes.sensor_routes       import sensor_bp
+    from routes.prediction_routes   import prediction_bp
+    from routes.alert_routes        import alert_bp
+    from routes.analytics_routes    import analytics_bp
+    from routes.report_routes       import report_bp
+    from routes.ingestion_routes    import ingestion_bp
+    from routes.notification_routes import notification_bp
 
-    app.register_blueprint(auth_bp,        url_prefix="/api/auth")
-    app.register_blueprint(sensor_bp,      url_prefix="/api/sensor")
-    app.register_blueprint(prediction_bp,  url_prefix="/api/predict")
-    app.register_blueprint(alert_bp,       url_prefix="/api/alerts")
-    app.register_blueprint(analytics_bp,   url_prefix="/api/analytics")
-    app.register_blueprint(report_bp,      url_prefix="/api/reports")
+    app.register_blueprint(auth_bp,         url_prefix="/api/auth")
+    app.register_blueprint(sensor_bp,       url_prefix="/api/sensor")
+    app.register_blueprint(prediction_bp,   url_prefix="/api/predict")
+    app.register_blueprint(alert_bp,        url_prefix="/api/alerts")
+    app.register_blueprint(analytics_bp,    url_prefix="/api/analytics")
+    app.register_blueprint(report_bp,       url_prefix="/api/reports")
+    app.register_blueprint(ingestion_bp,    url_prefix="/api/ingest")
+    app.register_blueprint(notification_bp, url_prefix="/api/notifications")
 
     # Health-check route
+    @app.route("/api/health")
+    def api_health():
+        return jsonify({
+            "status": "PREDICTA 2.0 Online",
+            "version": "2.0.0",
+            "architecture": "AI-Powered Industrial Predictive Maintenance",
+            "database": "connected"
+        })
+
+    # Serve Frontend UI
     @app.route("/")
-    def health():
-        return jsonify({"status": "PREDICTA Backend Online", "version": "1.0.0"})
+    def serve_index():
+        return app.send_static_file("index.html")
+
+    @app.route("/<path:path>")
+    def serve_static_files(path):
+        if os.path.exists(os.path.join(frontend_dir, path)):
+            return app.send_static_file(path)
+        return app.send_static_file("index.html")
 
     # Create DB tables
     with app.app_context():
@@ -54,6 +78,7 @@ def create_app(config_class=Config):
         _seed_default_data(app)
 
     return app
+
 
 
 def _seed_default_data(app):

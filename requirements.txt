@@ -1,0 +1,25 @@
+# PREDICTA 2.0 – Production Python Dependencies (Root)
+flask==3.0.0
+flask-cors==4.0.0
+flask-jwt-extended==4.6.0
+flask-sqlalchemy==3.1.1
+flask-socketio==5.3.6
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+paho-mqtt==1.6.1
+scikit-learn>=1.4.0
+xgboost>=2.0.3
+joblib>=1.3.2
+numpy>=1.26.0
+pandas>=2.2.0
+scipy>=1.12.0
+openpyxl>=3.1.2
+python-dotenv==1.0.0
+requests==2.31.0
+twilio>=8.0.0
+reportlab==4.1.0
+werkzeug==3.0.1
+cryptography==42.0.2
+eventlet==0.35.2
+gunicorn==21.2.0
+pytest>=8.0.0

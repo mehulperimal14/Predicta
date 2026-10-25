@@ -17,42 +17,52 @@
     <div class="sidebar-logo">
       <div class="logo-icon">⚡</div>
       <div class="logo-text">
-        <span class="logo-name">PREDICTA</span>
-        <span class="logo-tag">v1.0 Industrial</span>
+        <span class="logo-name">PREDICTA 2.0</span>
+        <span class="logo-tag">Industrial AI</span>
       </div>
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section-label">Monitoring</div>
+      <div class="nav-section-label">Operations</div>
       <a href="index.html" class="nav-item active" id="nav-dashboard">
-        <span class="nav-icon">◈</span> Live Dashboard
+        <span class="nav-icon">◈</span> Overview
+      </a>
+      <a href="upload.html" class="nav-item" id="nav-upload">
+        <span class="nav-icon">⇪</span> Upload & Ingest
       </a>
       <a href="analytics.html" class="nav-item" id="nav-analytics">
-        <span class="nav-icon">◉</span> Analytics
+        <span class="nav-icon">◉</span> Asset Health
+      </a>
+      <a href="ai_analysis.html" class="nav-item" id="nav-ai">
+        <span class="nav-icon">🔬</span> AI Investigation
       </a>
       <a href="maintenance.html" class="nav-item" id="nav-maintenance">
         <span class="nav-icon">◫</span> Maintenance
       </a>
 
-      <div class="nav-section-label" style="margin-top:24px">Management</div>
+      <div class="nav-section-label" style="margin-top:20px">Integration & Admin</div>
+      <a href="notifications.html" class="nav-item" id="nav-notifications">
+        <span class="nav-icon">🔔</span> Telegram & SMS
+      </a>
       <a href="reports.html" class="nav-item" id="nav-reports">
         <span class="nav-icon">◧</span> Reports
       </a>
       <a href="admin.html" class="nav-item" id="nav-admin">
-        <span class="nav-icon">◩</span> Admin
+        <span class="nav-icon">◩</span> Administration
       </a>
     </nav>
 
     <div class="sidebar-machine">
       <div class="machine-label">Active Machine</div>
       <div class="machine-id" id="sidebar-device-id">MOTOR_01</div>
-      <div class="machine-type">3φ Induction Motor + Pump</div>
+      <div class="machine-type">Industrial Equipment</div>
       <div class="machine-status">
         <span class="status-dot" id="sidebar-status-dot"></span>
-        <span id="sidebar-status-text">Connecting…</span>
+        <span id="sidebar-status-text">Ready</span>
       </div>
     </div>
   </aside>
+
 
   <!-- ═══ MAIN CONTENT ═════════════════════════════════════════════════════ -->
   <main class="main-content">
@@ -77,8 +87,30 @@
       </div>
     </header>
 
+    <!-- Predicta 2.0 File Ingestion & Fleet Action Banner -->
+    <div style="background:linear-gradient(135deg,rgba(0,212,255,0.08),rgba(15,17,23,0.95));border:1px solid var(--border-accent);border-radius:var(--radius);padding:20px 24px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;">
+          <span>⚡ Predicta 2.0 Universal PLC / SCADA Analytics</span>
+          <span class="badge" style="background:rgba(0,255,136,0.15);color:var(--green);">Advisory System</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-dim);margin-top:6px;max-width:700px;line-height:1.5;">
+          Analyse historical machine behavior, detect abnormal trends, and investigate failure risks from your existing plant historian or PLC/SCADA CSV/Excel exports — without buying or installing new physical sensors.
+        </p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <a href="upload.html" class="btn-action" style="text-decoration:none;">
+          <span>⇪ Upload PLC / SCADA Data</span> →
+        </a>
+        <a href="ai_analysis.html" class="btn-dl" style="padding:10px 16px;font-size:12px;">
+          <span>🔬 AI Investigation</span>
+        </a>
+      </div>
+    </div>
+
     <!-- ── SECTION A: LIVE MONITORING ──────────────────────────────────── -->
     <section class="dashboard-section">
+
       <div class="section-header">
         <div class="section-badge">SECTION A</div>
         <h2 class="section-title">Live Machine Monitoring</h2>

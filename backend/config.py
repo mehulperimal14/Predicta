@@ -50,6 +50,22 @@ class Config:
     TELEGRAM_BOT_TOKEN  = os.getenv("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_CHAT_ID    = os.getenv("TELEGRAM_CHAT_ID", "")
 
+    # Twilio SMS
+    TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID", "")
+    TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN", "")
+    TWILIO_FROM_NUMBER  = os.getenv("TWILIO_FROM_NUMBER", "")
+    ALERT_SMS_RECIPIENTS = [s.strip() for s in os.getenv("ALERT_SMS_RECIPIENTS", "").split(",") if s.strip()]
+
+    # Notification & Historical Replay Guard
+    ALLOW_HISTORICAL_REPLAY = os.getenv("ALLOW_HISTORICAL_REPLAY", "False").lower() == "true"
+    NOTIFICATION_MOCK_MODE  = os.getenv("NOTIFICATION_MOCK_MODE", "True").lower() == "true"
+    NOTIFICATION_COOLDOWN_MINUTES = int(os.getenv("NOTIFICATION_COOLDOWN_MINUTES", 15))
+
+    # ─── File Uploads (PLC/SCADA Ingestion) ───────────────────────────────────
+    UPLOAD_FOLDER       = os.getenv("UPLOAD_FOLDER", os.path.join(os.path.dirname(__file__), "uploads"))
+    MAX_CONTENT_LENGTH  = 100 * 1024 * 1024  # 100 MB max file size
+    ALLOWED_EXTENSIONS  = {"csv", "xlsx", "xls"}
+
     # ─── Machine Thresholds (defaults, overridable per-device in DB) ──────────
     THRESHOLDS = {
         "voltage_min":      380.0,   # V (3-phase line voltage)

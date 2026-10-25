@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PREDICTA 2.0 – Upload & Analyse Data</title>
+  <meta name="description" content="Universal PLC/SCADA Data Ingestion, Tag Mapping Studio & Quality Analysis"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .upload-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px; margin-bottom: 24px; }
+    .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+    .panel-title { font-size: 15px; font-weight: 700; color: #fff; }
+    .tag-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .tag-table th { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+    .tag-table td { padding: 10px 12px; font-size: 13px; color: var(--text-dim); border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    .mapping-select { width: 100%; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: #fff; font-size: 12px; font-family: 'Inter', sans-serif; }
+    .mapping-select option { background: #12151e; color: #fff; }
+    .mapping-select:focus { outline: none; border-color: var(--accent); }
+    .btn-action { background: linear-gradient(135deg, #00d4ff, #0077b6); border: none; border-radius: 8px; color: #fff; padding: 12px 24px; font-size: 13px; font-weight: 700; cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; gap: 8px; }
+    .btn-action:hover { transform: translateY(-1px); box-shadow: 0 4px 18px var(--accent-glow); }
+    .btn-action:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .quality-bar-wrap { background: rgba(255,255,255,0.05); border-radius: 4px; height: 6px; overflow: hidden; margin-top: 6px; }
+    .quality-bar-fill { height: 100%; background: var(--green); border-radius: 4px; }
+    .preview-table-wrap { overflow-x: auto; max-height: 280px; margin-top: 14px; border: 1px solid var(--border); border-radius: 8px; }
+    .preview-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+    .preview-table th { background: rgba(255,255,255,0.03); padding: 8px 12px; color: var(--text-muted); text-align: left; position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+    .preview-table td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text-dim); white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <!-- ═══ SIDEBAR ══════════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="logo-name">PREDICTA 2.0</span>
+        <span class="logo-tag">Industrial AI</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Operations</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">◈</span> Overview
+      </a>
+      <a href="upload.html" class="nav-item active">
+        <span class="nav-icon">⇪</span> Upload & Ingest
+      </a>
+      <a href="analytics.html" class="nav-item">
+        <span class="nav-icon">◉</span> Asset Health
+      </a>
+      <a href="ai_analysis.html" class="nav-item">
+        <span class="nav-icon">🔬</span> AI Investigation
+      </a>
+      <a href="maintenance.html" class="nav-item">
+        <span class="nav-icon">◫</span> Maintenance
+      </a>
+
+      <div class="nav-section-label" style="margin-top:20px">Integration & Admin</div>
+      <a href="notifications.html" class="nav-item">
+        <span class="nav-icon">🔔</span> Telegram & SMS
+      </a>
+      <a href="reports.html" class="nav-item">
+        <span class="nav-icon">◧</span> Reports
+      </a>
+      <a href="admin.html" class="nav-item">
+        <span class="nav-icon">◩</span> Administration
+      </a>
+    </nav>
+
+    <div class="sidebar-machine">
+      <div class="machine-label">Mode</div>
+      <div class="machine-id" style="font-size:12px;color:var(--accent);">Universal File Ingestion</div>
+      <div class="machine-type" style="font-size:10px;color:var(--text-muted);margin-top:4px;">No Physical Sensors Required</div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN CONTENT ═════════════════════════════════════════════════════ -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Upload & Tag Mapping Studio</h1>
+        <div class="breadcrumb">PLC / SCADA Historian Ingestion / Universal File Analytics</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-time" id="topbar-clock">--:--:--</div>
+        <div class="user-pill"><span class="user-avatar">A</span><span class="user-name">Admin</span></div>
+      </div>
+    </header>
+
+    <!-- Top Action Grid -->
+    <div class="upload-grid">
+      <!-- Upload Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">1. Select Industrial Data File</span>
+          <span style="font-size:11px;color:var(--text-muted);">Supported: CSV, XLSX, XLS (Max 100MB)</span>
+        </div>
+
+        <div class="dropzone" id="file-dropzone" onclick="document.getElementById('file-input').click()">
+          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-title" id="drop-title">Drop PLC/SCADA file here or browse</div>
+          <div class="dropzone-sub" id="drop-sub">Compatible with Siemens, Rockwell, Delta, Schneider, ABB, Yokogawa exports</div>
+          <input type="file" id="file-input" style="display:none;" accept=".csv,.xlsx,.xls" onchange="handleFileSelected(event)"/>
+        </div>
+
+        <div id="excel-sheet-picker" style="display:none;margin-top:16px;">
+          <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Select Workbook Sheet:</label>
+          <select id="sheet-select" class="mapping-select" style="margin-top:6px;"></select>
+        </div>
+
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;">
+          <button class="btn-action" id="btn-upload" onclick="uploadDatasetFile()" disabled>
+            <span>Upload & Validate Tags</span> →
+          </button>
+        </div>
+      </div>
+
+      <!-- Demonstration Datasets Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">💡 1-Click Demonstration Datasets</span>
+          <span style="font-size:11px;color:var(--green);font-weight:700;">Pre-Generated</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.5;">
+          No industrial plant file handy? Download one of our physics-grounded synthetic machine datasets with verified operational degradation:
+        </p>
+        <div class="sample-grid" id="sample-list">
+          <!-- Populated by JavaScript -->
+          <div style="font-size:12px;color:var(--text-muted);">Loading sample files…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Quality & Validation Scorecard (Visible after upload) -->
+    <div id="quality-section" style="display:none;margin-bottom:24px;">
+      <div class="quality-card">
+        <div class="quality-score-circle" id="quality-circle">--</div>
+        <div class="quality-meta">
+          <div class="quality-grade" id="quality-grade">Data Quality: Good</div>
+          <p style="font-size:12px;color:var(--text-muted);" id="quality-summary">
+            Validated against industrial missing values, sampling frequency jitter, and unphysical sensors.
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px;" id="quality-breakdown">
+            <!-- Breakdowns -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tag Mapping & Analysis Studio (Visible after upload) -->
+    <div id="mapping-section" class="panel" style="display:none;margin-bottom:24px;">
+      <div class="panel-header">
+        <div>
+          <span class="panel-title">2. Tag Mapping Studio & Target Variables</span>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
+            Match plant-specific tag names to standard Predicta variables. Tags not present will be handled safely without hallucinating sensors.
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label style="font-size:11px;color:var(--text-muted);font-weight:700;">Asset ID:</label>
+          <input type="text" id="target-asset-id" class="mapping-select" style="width:140px;" value="MOTOR-01"/>
+        </div>
+      </div>
+
+      <table class="tag-table">
+        <thead>
+          <tr>
+            <th style="width:28%;">Standard Variable</th>
+            <th style="width:14%;">Category</th>
+            <th style="width:38%;">Mapped Plant / Historian Tag</th>
+            <th style="width:20%;">Physical Status</th>
+          </tr>
+        </thead>
+        <tbody id="tag-mapping-body">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+
+      <!-- Dataset Preview -->
+      <div style="margin-top:24px;">
+        <span style="font-size:13px;font-weight:700;color:#fff;">Raw Dataset Preview (First 15 Rows)</span>
+        <div class="preview-table-wrap">
+          <table class="preview-table" id="preview-table">
+            <!-- Populated by JS -->
+          </table>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="chk-live-notify" style="accent-color:var(--accent);"/>
+          <label for="chk-live-notify" style="font-size:12px;color:var(--text-dim);cursor:pointer;">
+            Enable Live Notifications (Replay Guard Override: send Telegram/SMS for critical historical anomalies)
+          </label>
+        </div>
+        <button class="btn-action" id="btn-run-analysis" onclick="executeFullAnalysis()">
+          <span>Run 5-Layer AI Analysis</span> ⚡
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    let selectedFile = null;
+    let currentDatasetId = null;
+    let uploadedColumns = [];
+    let standardVars = {};
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      loadClock();
+      loadSampleDatasets();
+    });
+
+    function loadClock() {
+      setInterval(() => {
+        const el = document.getElementById("topbar-clock");
+        if (el) el.innerText = new Date().toTimeString().split(" ")[0];
+      }, 1000);
+    }
+
+    async function loadSampleDatasets() {
+      const res = await API.getSamples();
+      const container = document.getElementById("sample-list");
+      if (Array.isArray(res) && res.length > 0) {
+        container.innerHTML = res.map(s => `
+          <div class="sample-card">
+            <div>
+              <div class="sample-name">${s.filename}</div>
+              <div class="sample-desc">${s.description}</div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <a href="${API.BASE}/ingest/download-sample/${s.filename}" class="btn-dl" download>Download</a>
+              <button type="button" class="btn-dl" style="background:var(--accent);color:#0a0e17;font-weight:700;border:none;cursor:pointer;" onclick="loadAndInspectSample('${s.filename}', this)">Load & Inspect</button>
+            </div>
+          </div>
+        `).join("");
+      }
+    }
+
+    async function loadAndInspectSample(filename, btn) {
+      try {
+        const oldText = btn.innerText;
+        btn.innerText = "Loading…";
+        btn.disabled = true;
+
+        const resp = await fetch(`${API.BASE}/ingest/download-sample/${filename}`);
+        const blob = await resp.blob();
+        const file = new File([blob], filename, { 
+          type: filename.endsWith('.xlsx') ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv' 
+        });
+
+        selectedFile = file;
+        document.getElementById("drop-title").innerText = file.name;
+        document.getElementById("drop-sub").innerText = `${(file.size / 1024 / 1024).toFixed(2)} MB • Auto-loaded sample`;
+        document.getElementById("btn-upload").disabled = false;
+
+        await uploadDatasetFile();
+        btn.innerText = oldText;
+        btn.disabled = false;
+      } catch (err) {
+        console.error(err);
+        alert("Failed to load sample dataset: " + err);
+        if (btn) {
+          btn.innerText = "Load & Inspect";
+          btn.disabled = false;
+        }
+      }
+    }
+
+    function handleFileSelected(e) {
+      if (e.target.files.length > 0) {
+        selectedFile = e.target.files[0];
+        document.getElementById("drop-title").innerText = selectedFile.name;
+        document.getElementById("drop-sub").innerText = `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB • Ready to upload`;
+        document.getElementById("btn-upload").disabled = false;
+      }
+    }
+
+    async function uploadDatasetFile() {
+      if (!selectedFile) return;
+      const btn = document.getElementById("btn-upload");
+      btn.disabled = true;
+      btn.innerText = "Validating & Uploading…";
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const res = await API.uploadDataset(formData);
+      btn.disabled = false;
+      btn.innerText = "Upload & Validate Tags →";
+
+      if (res && res.status === "success") {
+        currentDatasetId = res.dataset_id;
+        uploadedColumns = res.preview.columns.map(c => c.name);
+        standardVars = res.standard_variables;
+        
+        renderQualityScorecard(res.quality);
+        renderTagMappingTable(res.suggested_mappings, uploadedColumns);
+        renderPreviewTable(res.preview);
+
+        if (res.detected_asset_id) {
+          document.getElementById("target-asset-id").value = res.detected_asset_id;
+        }
+
+        document.getElementById("quality-section").style.display = "block";
+        document.getElementById("mapping-section").style.display = "block";
+        document.getElementById("mapping-section").scrollIntoView({ behavior: "smooth" });
+      } else {
+        alert("Upload failed: " + (res.error || "Unknown validation error"));
+      }
+    }
+
+    function renderQualityScorecard(q) {
+      const circle = document.getElementById("quality-circle");
+      circle.innerText = `${Math.round(q.score)}%`;
+      circle.className = `quality-score-circle ${q.grade.toLowerCase()}`;
+      document.getElementById("quality-grade").innerText = `Data Quality Score: ${q.grade} (${q.score}/100)`;
+      
+      const bGrid = document.getElementById("quality-breakdown");
+      bGrid.innerHTML = `
+        <div style="background:rgba(255,255,255,0.03);padding:10px;border-radius:6px;">
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Missing Data</div>
+          <div style="font-size:14px;font-weight:700;color:#fff;">-${q.deductions.missing_data} pts</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);padding:10px;border-radius:6px;">
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Sampling Gaps</div>
+          <div style="font-size:14px;font-weight:700;color:#fff;">-${q.deductions.sampling_gaps} pts</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);padding:10px;border-radius:6px;">
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Duplicate Rows</div>
+          <div style="font-size:14px;font-weight:700;color:#fff;">-${q.deductions.duplicates} pts</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);padding:10px;border-radius:6px;">
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Dead Columns</div>
+          <div style="font-size:14px;font-weight:700;color:#fff;">-${q.deductions.constant_columns} pts</div>
+        </div>
+      `;
+    }
+
+    function renderTagMappingTable(suggested, columns) {
+      const tbody = document.getElementById("tag-mapping-body");
+      tbody.innerHTML = Object.entries(standardVars).map(([key, meta]) => {
+        const assigned = suggested[key] || "";
+        const optionsHtml = `<option value="">-- [Not Present in Dataset] --</option>` +
+          columns.map(col => `<option value="${col}" ${col === assigned ? 'selected' : ''}>${col}</option>`).join("");
+
+        const isRequired = meta.required ? '<span style="color:var(--red)">*</span>' : '';
+        const statusHtml = assigned
+          ? '<span class="badge" style="background:rgba(0,255,136,0.15);color:var(--green)">MAPPED</span>'
+          : '<span class="badge" style="background:rgba(255,255,255,0.05);color:var(--text-muted)">ABSENT / PROXY</span>';
+
+        return `
+          <tr>
+            <td>
+              <strong style="color:#fff;">${meta.label}</strong> ${isRequired}
+              <div style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono';">${key}</div>
+            </td>
+            <td><span class="badge" style="background:rgba(0,212,255,0.1);color:var(--accent);">${meta.category}</span></td>
+            <td>
+              <select class="mapping-select" data-var="${key}">
+                ${optionsHtml}
+              </select>
+            </td>
+            <td>${statusHtml}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderPreviewTable(preview) {
+      const table = document.getElementById("preview-table");
+      const ths = preview.columns.map(c => `<th>${c.name}</th>`).join("");
+      const trs = preview.sample_rows.map(row => {
+        const tds = preview.columns.map(c => `<td>${row[c.name] !== null ? row[c.name] : '<span style="color:var(--red)">NULL</span>'}</td>`).join("");
+        return `<tr>${tds}</tr>`;
+      }).join("");
+      table.innerHTML = `<thead><tr>${ths}</tr></thead><tbody>${trs}</tbody>`;
+    }
+
+    async function executeFullAnalysis() {
+      if (!currentDatasetId) return;
+      const btn = document.getElementById("btn-run-analysis");
+      btn.disabled = true;
+      btn.innerText = "Executing 5-Layer AI Analysis…";
+
+      // Collect mapped variables
+      const mapping = {};
+      document.querySelectorAll(".mapping-select[data-var]").forEach(sel => {
+        if (sel.value) {
+          mapping[sel.getAttribute("data-var")] = sel.value;
+        }
+      });
+
+      const assetId = document.getElementById("target-asset-id").value || "ASSET-01";
+      const liveNotify = document.getElementById("chk-live-notify").checked;
+
+      const res = await API.runAnalysis(currentDatasetId, {
+        asset_id: assetId,
+        mapping: mapping,
+        trigger_notifications: liveNotify
+      });
+
+      btn.disabled = false;
+      btn.innerText = "Run 5-Layer AI Analysis ⚡";
+
+      if (res && res.status === "success") {
+        // Store in sessionStorage and redirect to AI Analysis view
+        sessionStorage.setItem("predicta_latest_analysis", JSON.stringify(res));
+        window.location.href = `ai_analysis.html?analysis_id=${res.analysis_id}`;
+      } else {
+        alert("Analysis failed: " + (res.error || "Unknown server error"));
+      }
+    }
+  </script>
+</body>
+</html>

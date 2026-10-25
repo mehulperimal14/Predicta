@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PREDICTA 2.0 – Telegram & SMS Alert Integration</title>
+  <meta name="description" content="Configure Telegram Bot, Twilio SMS, alert cooldowns, and delivery audit history"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .notif-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+    .panel-title { font-size: 15px; font-weight: 700; color: #fff; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+    .form-input, .form-select { width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 13px; font-family: 'Inter', sans-serif; transition: var(--transition); }
+    .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); background: rgba(0,212,255,0.05); }
+    .form-help { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+    .btn-test { background: rgba(0,212,255,0.15); border: 1px solid var(--border-accent); color: var(--accent); padding: 10px 18px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: var(--transition); }
+    .btn-test:hover { background: var(--accent); color: #000; }
+    .btn-save { background: linear-gradient(135deg, #00d4ff, #0077b6); border: none; border-radius: 8px; color: #fff; padding: 12px 24px; font-size: 13px; font-weight: 700; cursor: pointer; transition: var(--transition); }
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 4px 18px var(--accent-glow); }
+    .log-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .log-table th { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+    .log-table td { padding: 10px 12px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    .status-ok   { color: var(--green); font-weight: 700; font-size: 11px; }
+    .status-fail { color: var(--red); font-weight: 700; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <!-- ═══ SIDEBAR ══════════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="logo-name">PREDICTA 2.0</span>
+        <span class="logo-tag">Industrial AI</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Operations</div>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">◈</span> Overview
+      </a>
+      <a href="upload.html" class="nav-item">
+        <span class="nav-icon">⇪</span> Upload & Ingest
+      </a>
+      <a href="analytics.html" class="nav-item">
+        <span class="nav-icon">◉</span> Asset Health
+      </a>
+      <a href="ai_analysis.html" class="nav-item">
+        <span class="nav-icon">🔬</span> AI Investigation
+      </a>
+      <a href="maintenance.html" class="nav-item">
+        <span class="nav-icon">◫</span> Maintenance
+      </a>
+
+      <div class="nav-section-label" style="margin-top:20px">Integration & Admin</div>
+      <a href="notifications.html" class="nav-item active">
+        <span class="nav-icon">🔔</span> Telegram & SMS
+      </a>
+      <a href="reports.html" class="nav-item">
+        <span class="nav-icon">◧</span> Reports
+      </a>
+      <a href="admin.html" class="nav-item">
+        <span class="nav-icon">◩</span> Administration
+      </a>
+    </nav>
+
+    <div class="sidebar-machine">
+      <div class="machine-label">Channels Active</div>
+      <div class="machine-id" style="font-size:12px;color:var(--accent);">Telegram & SMS</div>
+      <div class="machine-type" style="font-size:10px;color:var(--text-muted);margin-top:4px;">Replay Protection Active</div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN CONTENT ═════════════════════════════════════════════════════ -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Telegram & SMS Notifications</h1>
+        <div class="breadcrumb">Official Telegram Bot API / Twilio SMS / Replay Guard / Delivery Audit Logs</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-time" id="topbar-clock">--:--:--</div>
+        <div class="user-pill"><span class="user-avatar">A</span><span class="user-name">Admin</span></div>
+      </div>
+    </header>
+
+    <div class="notif-grid">
+      <!-- Telegram Configuration -->
+      <div class="panel">
+        <div class="panel-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">✈️</span>
+            <div>
+              <span class="panel-title">Telegram Bot Integration</span>
+              <div style="font-size:10px;color:var(--text-muted);">Official Bot API with Markdown & Action Links</div>
+            </div>
+          </div>
+          <button class="btn-test" onclick="triggerTelegramTest()">Send Test Alert</button>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <input type="checkbox" id="tg-enabled" style="accent-color:var(--accent);"/>
+            <label for="tg-enabled" style="font-size:13px;font-weight:700;color:#fff;cursor:pointer;">Enable Telegram Alerts</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Telegram Bot Token (Server-Side Encrypted)</label>
+          <input type="password" id="tg-token" class="form-input" placeholder="e.g. 7123456789:AAHq..."/>
+          <div class="form-help">Obtained from Telegram @BotFather. Never exposed in browser network payload.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Authorised Chat IDs (Comma-separated)</label>
+          <input type="text" id="tg-chats" class="form-input" placeholder="e.g. 123456789, -987654321"/>
+          <div class="form-help">Individual user IDs or group chat IDs (with bot added as administrator).</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Minimum Severity Threshold</label>
+          <select id="tg-severity" class="form-select">
+            <option value="WATCH">WATCH (All anomalous deviations)</option>
+            <option value="WARNING" selected>WARNING (Degradation trends & warnings)</option>
+            <option value="CRITICAL">CRITICAL (Only severe trip conditions)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Twilio SMS Configuration -->
+      <div class="panel">
+        <div class="panel-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">📱</span>
+            <div>
+              <span class="panel-title">Twilio / Provider SMS Alerts</span>
+              <div style="font-size:10px;color:var(--text-muted);">Reserved for High-Priority & Critical Events</div>
+            </div>
+          </div>
+          <button class="btn-test" onclick="triggerSMSTest()">Send Test SMS</button>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <input type="checkbox" id="sms-enabled" style="accent-color:var(--accent);"/>
+            <label for="sms-enabled" style="font-size:13px;font-weight:700;color:#fff;cursor:pointer;">Enable SMS Alerts</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Twilio Account SID</label>
+          <input type="text" id="sms-sid" class="form-input" placeholder="ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Twilio Auth Token</label>
+          <input type="password" id="sms-token" class="form-input" placeholder="••••••••••••••••••••••••••••••••"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Sender Phone Number</label>
+          <input type="text" id="sms-from" class="form-input" placeholder="+1234567890"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Authorised Recipient Numbers (Comma-separated E.164)</label>
+          <input type="text" id="sms-recipients" class="form-input" placeholder="+919876543210, +15551234567"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dispatch Policies & Replay Guard -->
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-header">
+        <span class="panel-title">Notification Policies & Historical Replay Guard</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+        <div class="form-group">
+          <label class="form-label">Per-Asset Cooldown Window (Minutes)</label>
+          <input type="number" id="cooldown-min" class="form-input" value="15" min="1" max="1440"/>
+          <div class="form-help">Suppresses repeated notifications for the same ongoing fault within this window to prevent alert fatigue.</div>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:20px;">
+            <input type="checkbox" id="allow-replay" style="accent-color:var(--accent);"/>
+            <label for="allow-replay" style="font-size:13px;font-weight:700;color:#fff;cursor:pointer;">
+              Allow Historical Replay Notifications
+            </label>
+          </div>
+          <div class="form-help" style="color:var(--yellow);margin-top:6px;">
+            ⚠️ When unchecked, uploading historical PLC files will NOT blast SMS/Telegram messages for old anomalies. Keep disabled during normal historian data imports.
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;">
+        <button class="btn-save" onclick="saveNotificationSettings()">Save Notification Settings</button>
+      </div>
+    </div>
+
+    <!-- Notification Delivery Audit History -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Delivery Audit Trail (Recent Alerts)</span>
+        <button class="btn-test" onclick="loadDeliveryLogs()">Refresh Logs</button>
+      </div>
+
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th style="width:20%;">Timestamp</th>
+            <th style="width:12%;">Channel</th>
+            <th style="width:16%;">Asset ID</th>
+            <th style="width:12%;">Severity</th>
+            <th style="width:18%;">Recipient</th>
+            <th style="width:10%;">Status</th>
+            <th style="width:12%;">Preview</th>
+          </tr>
+        </thead>
+        <tbody id="logs-table-body">
+          <!-- Populated by JS -->
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">Loading delivery logs…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      loadClock();
+      loadSettings();
+      loadDeliveryLogs();
+    });
+
+    function loadClock() {
+      setInterval(() => {
+        const el = document.getElementById("topbar-clock");
+        if (el) el.innerText = new Date().toTimeString().split(" ")[0];
+      }, 1000);
+    }
+
+    async function loadSettings() {
+      const cfg = await API.getNotificationConfig();
+      if (cfg) {
+        document.getElementById("tg-enabled").checked = Boolean(cfg.telegram_enabled);
+        if (cfg.telegram_bot_token_masked) {
+          document.getElementById("tg-token").placeholder = cfg.telegram_bot_token_masked;
+        }
+        document.getElementById("tg-chats").value = cfg.telegram_chat_ids || "";
+        document.getElementById("tg-severity").value = cfg.telegram_min_severity || "WARNING";
+
+        document.getElementById("sms-enabled").checked = Boolean(cfg.sms_enabled);
+        document.getElementById("sms-sid").value = cfg.twilio_account_sid || "";
+        document.getElementById("sms-from").value = cfg.sms_from_number || "";
+        document.getElementById("sms-recipients").value = cfg.sms_recipient_numbers || "";
+        if (cfg.twilio_auth_token_masked) {
+          document.getElementById("sms-token").placeholder = cfg.twilio_auth_token_masked;
+        }
+
+        document.getElementById("cooldown-min").value = cfg.cooldown_minutes || 15;
+        document.getElementById("allow-replay").checked = Boolean(cfg.allow_historical_replay);
+      }
+    }
+
+    async function saveNotificationSettings() {
+      const payload = {
+        telegram_enabled: document.getElementById("tg-enabled").checked,
+        telegram_bot_token: document.getElementById("tg-token").value,
+        telegram_chat_ids: document.getElementById("tg-chats").value,
+        telegram_min_severity: document.getElementById("tg-severity").value,
+        sms_enabled: document.getElementById("sms-enabled").checked,
+        twilio_account_sid: document.getElementById("sms-sid").value,
+        twilio_auth_token: document.getElementById("sms-token").value,
+        twilio_from_number: document.getElementById("sms-from").value,
+        sms_recipient_numbers: document.getElementById("sms-recipients").value,
+        cooldown_minutes: parseInt(document.getElementById("cooldown-min").value) || 15,
+        allow_historical_replay: document.getElementById("allow-replay").checked,
+        mock_mode: true
+      };
+
+      const res = await API.saveNotificationConfig(payload);
+      if (res && res.status === "success") {
+        alert("Notification configuration saved successfully!");
+        loadSettings();
+      } else {
+        alert("Save failed: " + (res.error || "Unknown error"));
+      }
+    }
+
+    async function triggerTelegramTest() {
+      const res = await API.testTelegram();
+      if (res && res.status === "success") {
+        alert("Telegram test alert sent successfully! Check your Telegram chat.");
+        loadDeliveryLogs();
+      } else {
+        alert("Telegram test outcome: " + (res.message || JSON.stringify(res.outcomes || res.error)));
+      }
+    }
+
+    async function triggerSMSTest() {
+      const res = await API.testSMS();
+      if (res && res.status === "success") {
+        const mode = res.mock_mode ? "(Mock Safe Mode - Logged to Audit Trail)" : "(Sent via Twilio)";
+        alert(`SMS test completed ${mode}! Check delivery logs below.`);
+        loadDeliveryLogs();
+      } else {
+        alert("SMS test failed: " + (res.message || JSON.stringify(res.error)));
+      }
+    }
+
+    async function loadDeliveryLogs() {
+      const logs = await API.getNotificationHistory();
+      const tbody = document.getElementById("logs-table-body");
+      if (Array.isArray(logs) && logs.length > 0) {
+        tbody.innerHTML = logs.map(l => {
+          const status = l.delivered
+            ? '<span class="status-ok">✓ DELIVERED</span>'
+            : '<span class="status-fail">✗ FAILED</span>';
+          return `
+            <tr>
+              <td>${new Date(l.sent_at).toLocaleString()}</td>
+              <td><span class="badge" style="background:rgba(0,212,255,0.1);color:var(--accent);">${l.alert_type}</span></td>
+              <td><strong>${l.device_id}</strong></td>
+              <td><span class="badge" style="background:${l.severity === 'CRITICAL' ? 'rgba(255,68,68,0.2)' : 'rgba(255,140,0,0.2)'};color:${l.severity === 'CRITICAL' ? 'var(--red)' : 'var(--orange)'};">${l.severity}</span></td>
+              <td><code>${l.recipient || 'N/A'}</code></td>
+              <td>${status}</td>
+              <td style="font-size:11px;color:var(--text-muted);">${(l.message || '').substring(0, 35)}…</td>
+            </tr>
+          `;
+        }).join("");
+      } else {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">No alerts logged yet. Run a test alert above.</td></tr>`;
+      }
+    }
+  </script>
+</body>
+</html>
