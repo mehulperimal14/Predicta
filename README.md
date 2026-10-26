@@ -185,7 +185,7 @@ Key configuration parameters:
 python backend/app.py
 ```
 Open your browser to:
-**`http://localhost:5000`**
+**`https://predicta-i6vf.onrender.com/login.html`**
 
 Default credentials:
 - **Username:** `admin`
