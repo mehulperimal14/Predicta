@@ -159,6 +159,15 @@ def test_every_sample_dataset_analyses(client, sample):
     assert "Remaining Useful Life" in body["summary_markdown"]
 
 
+def test_token_signed_with_another_key_returns_401(client):
+    # Header/payload of a valid JWT, signature from a different key – what a browser
+    # still holds after JWT_SECRET_KEY is rotated. Must be 401 so the UI re-authenticates.
+    stale = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiJ9.c2lnbmF0dXJlLWZyb20tYW5vdGhlci1rZXk"
+    res = client.get("/api/ingest/datasets", headers={"Authorization": f"Bearer {stale}"})
+    assert res.status_code == 401
+    assert client.post("/api/auth/refresh", headers={"Authorization": f"Bearer {stale}"}).status_code == 401
+
+
 def test_jwt_secret_is_not_a_published_literal():
     from config import Config
     assert Config.JWT_SECRET_KEY not in ("predicta-jwt-secret-key", "")

@@ -296,6 +296,7 @@
       const res = await API.uploadDataset(formData);
       btn.disabled = false;
       btn.innerText = "Upload & Validate Tags →";
+      if (res === null) return;   // session expired: API is redirecting to the login page
 
       if (res && res.status === "success") {
         currentDatasetId = res.dataset_id;
@@ -410,6 +411,7 @@
 
       btn.disabled = false;
       btn.innerText = "Run 5-Layer AI Analysis ⚡";
+      if (res === null) return;   // session expired: API is redirecting to the login page
 
       if (res && res.status === "success") {
         // Store in sessionStorage and redirect to AI Analysis view

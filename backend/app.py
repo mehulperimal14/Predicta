@@ -29,7 +29,14 @@ def create_app(config_class=Config):
     # Extensions
     db.init_app(app)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
-    JWTManager(app)
+    jwt = JWTManager(app)
+
+    # Tokens signed with an old key (e.g. after JWT_SECRET_KEY changes) or malformed tokens
+    # default to 422, which the frontend cannot tell apart from a validation error. Answer
+    # 401 like an expired token so the browser refreshes or returns to the login page.
+    @jwt.invalid_token_loader
+    def _invalid_token(reason):
+        return jsonify({"msg": reason, "error": "Session invalid or expired. Please sign in again."}), 401
     socketio.init_app(app, cors_allowed_origins="*", async_mode="threading")
 
     # Register Blueprints
