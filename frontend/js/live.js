@@ -164,14 +164,15 @@ function updateDashboard(d) {
   document.getElementById("sidebar-status-text").textContent = d.motor_running ? "Running" : "Stopped";
 
   // KPI Cards
-  updateKPI("kpi-voltage",  "kpi-voltage-val",  "kpi-voltage-bar",  d.voltage, 380, 440, 500);
-  updateKPI("kpi-current",  "kpi-current-val",  "kpi-current-bar",  d.current, 0, 4.5, 6, 2);
-  updateKPI("kpi-temp",     "kpi-temp-val",     "kpi-temp-bar",     d.motor_temp, 0, 85, 120, 1);
-  updateKPI("kpi-vibration","kpi-vib-val",      "kpi-vib-bar",      d.vibration_rms, 0, 1.0, 2.0, 3);
-  updateKPI("kpi-rpm",      "kpi-rpm-val",      "kpi-rpm-bar",      d.rpm, 0, 1600, 2000, 0);
-  updateKPI("kpi-power",    "kpi-power-val",    "kpi-power-bar",    d.power_kw, 0, 1.5, 2.0, 2);
-  updateKPI("kpi-bearing",  "kpi-bearing-val",  "kpi-bearing-bar",  d.bearing_temp, 0, 70, 100, 1);
-  updateKPI("kpi-pressure", "kpi-pressure-val", "kpi-pressure-bar", d.pressure, 50, 600, 700, 0);
+  // Limits match the analytics engine's DEFAULT_ENGINEERING_LIMITS
+  updateKPI("kpi-voltage",  "kpi-voltage-val",  "kpi-voltage-bar",  d.voltage, 340, 500, 1, { warn: 440, crit: 460, lowWarn: 380, lowCrit: 360 });
+  updateKPI("kpi-current",  "kpi-current-val",  "kpi-current-bar",  d.current, 0, 6, 2, { warn: 4.2, crit: 5.0 });
+  updateKPI("kpi-temp",     "kpi-temp-val",     "kpi-temp-bar",     d.motor_temp, 0, 120, 1, { warn: 75, crit: 85 });
+  updateKPI("kpi-vibration","kpi-vib-val",      "kpi-vib-bar",      d.vibration_rms, 0, 2.0, 3, { warn: 0.45, crit: 0.9 });
+  updateKPI("kpi-rpm",      "kpi-rpm-val",      "kpi-rpm-bar",      d.rpm, 0, 2000, 0, { warn: 1580, lowWarn: 1250 });
+  updateKPI("kpi-power",    "kpi-power-val",    "kpi-power-bar",    d.power_kw, 0, 2.0, 2, { warn: 1.5, crit: 1.8 });
+  updateKPI("kpi-bearing",  "kpi-bearing-val",  "kpi-bearing-bar",  d.bearing_temp, 0, 100, 1, { warn: 70, crit: 80 });
+  updateKPI("kpi-pressure", "kpi-pressure-val", "kpi-pressure-bar", d.pressure, 0, 700, 0, { warn: 550, lowWarn: 80 });
 
   // Reading time (server stores UTC without zone)
   const readingTime = d.timestamp ? new Date(d.timestamp + "Z") : new Date();
@@ -194,7 +195,7 @@ function updateBadge(id, isFault, faultLabel, okLabel, faultIsBad = true) {
   valEl.textContent = isFault ? faultLabel : okLabel;
 }
 
-function updateKPI(cardId, valId, barId, value, min, warn, max, decimals = 1) {
+function updateKPI(cardId, valId, barId, value, min, max, decimals, limits) {
   if (value == null) return;
   const card = document.getElementById(cardId);
   const valEl = document.getElementById(valId);
@@ -204,8 +205,9 @@ function updateKPI(cardId, valId, barId, value, min, warn, max, decimals = 1) {
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   barEl.style.width = pct + "%";
 
-  const isCrit = value >= warn;
-  const isWarn = value >= warn * 0.85;
+  const { warn = Infinity, crit = Infinity, lowWarn = -Infinity, lowCrit = -Infinity } = limits;
+  const isCrit = value >= crit || value <= lowCrit;
+  const isWarn = value >= warn || value <= lowWarn;
   card.className = "kpi-card " + (isCrit ? "critical" : isWarn ? "warning" : "");
   barEl.style.background = isCrit ? "var(--red)" : isWarn ? "var(--yellow)" : "var(--accent)";
 }
@@ -294,11 +296,14 @@ function renderTrendTable(forecast, latest) {
   document.getElementById("trend-window").textContent = first ? `fitted on last ${API.fmtHours(first.window_hours)} of running data` : "";
   tbody.innerHTML = vars.map(v => {
     const now = latest[v.variable] != null ? latest[v.variable] : v.latest_value;
-    const slope = v.slope_per_hour != null ? (v.slope_per_hour > 0 ? "+" : "") + v.slope_per_hour.toFixed(3) : "—";
+    // Not statistically significant → "flat", rather than a noisy number next to STABLE
+    const slope = v.slope_per_hour == null ? "—"
+      : v.direction === "STABLE" ? "flat"
+      : (v.slope_per_hour > 0 ? "+" : "") + v.slope_per_hour.toFixed(3);
     return `<tr>
       <td style="color:#fff;">${API.esc(v.variable.replace(/_/g, " "))}</td>
       <td>${now != null ? Number(now).toFixed(2) : "—"} ${API.esc(v.unit || "")}</td>
-      <td>${slope} ${v.direction && v.direction !== "STABLE" ? "(" + v.direction.toLowerCase() + ")" : ""}</td>
+      <td>${slope}${v.direction && v.direction !== "STABLE" ? " " + API.esc(v.unit || "") + " (" + v.direction.toLowerCase() + ")" : ""}</td>
       <td style="color:${colors[v.status] || "#fff"};font-weight:600;">${API.esc((v.status || "").replace(/_/g, " "))}</td>
       <td>${API.fmtHours(v.hours_to_warning)}</td>
       <td>${API.fmtHours(v.hours_to_critical)}</td>

@@ -171,7 +171,8 @@ def compute_changepoints(
         ts = None
         if timestamp_col and timestamp_col in running.columns:
             value = running.loc[label, timestamp_col]
-            ts = str(value) if pd.notnull(value) else None
+            if pd.notnull(value):
+                ts = value.strftime("%Y-%m-%d %H:%M:%S") if hasattr(value, "strftime") else str(value)
         return row, ts
 
     for var in TREND_VARIABLES:

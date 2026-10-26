@@ -361,7 +361,9 @@
       tbody.innerHTML = vars.map(v => {
         const cp = changepoints[v.variable] || {};
         const shift = cp.ongoing_shift ? (cp.ongoing_shift_timestamp || "row " + cp.ongoing_shift_row) : "—";
-        const slope = v.slope_per_hour != null ? (v.slope_per_hour > 0 ? "+" : "") + v.slope_per_hour.toFixed(3) + " " + (v.unit || "") : "—";
+        const slope = v.slope_per_hour == null ? "—"
+          : v.direction === "STABLE" ? "flat"
+          : (v.slope_per_hour > 0 ? "+" : "") + v.slope_per_hour.toFixed(3) + " " + (v.unit || "");
         return `<tr>
           <td style="color:#fff;">${API.esc(v.variable.replace(/_/g, " "))}</td>
           <td>${API.esc(slope)}</td>
