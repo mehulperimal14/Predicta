@@ -1,12 +1,16 @@
 """
-PREDICTA – MQTT Subscriber Bridge
-Subscribes to ESP32 MQTT topic and forwards data to Flask backend.
+PREDICTA – Segment B MQTT Subscriber Bridge
+Subscribes to the ESP32 MQTT topic and ingests readings in-process through the same
+code path as POST /api/live/ingest. Started from app.py when MQTT_ENABLED=true.
+
+Trust model: the broker authenticates devices (MQTT_USERNAME / ACLs). The bridge only
+accepts readings for devices that were registered in Predicta; a device_key in the
+payload, if present, must also match.
 Compatible with paho-mqtt v1 and v2.
 """
 
 import json
 import threading
-import requests as _requests
 
 
 def start_mqtt_subscriber(app, socketio):
@@ -36,20 +40,20 @@ def start_mqtt_subscriber(app, socketio):
                 print(f"[MQTT] Connection failed rc={rc}")
 
         def on_message(client, userdata, msg):
+            from models import Machine
+            from live_engine import ingest_readings, verify_device_key
             try:
                 payload = json.loads(msg.payload.decode())
-                resp = _requests.post(
-                    "http://localhost:5000/api/sensor/ingest",
-                    json=payload, timeout=5
-                )
-                if resp.status_code == 201:
-                    result = resp.json()
-                    socketio.emit("sensor_update", {
-                        "device_id":   payload.get("device_id"),
-                        "data":        payload,
-                        "health_score":result.get("health_score"),
-                        "prediction":  result.get("prediction"),
-                    })
+                device_id = str(payload.get("device_id", ""))
+                with app.app_context():
+                    if not Machine.query.filter_by(device_id=device_id).first():
+                        print(f"[MQTT] Ignored reading from unregistered device '{device_id}'")
+                        return
+                    if payload.get("device_key") and not verify_device_key(device_id, payload["device_key"]):
+                        print(f"[MQTT] Ignored reading with invalid device_key for '{device_id}'")
+                        return
+                    readings = payload.get("readings") or [payload]
+                    ingest_readings(device_id, readings)  # also emits "sensor_update"
             except Exception as e:
                 print(f"[MQTT] Message error: {e}")
 

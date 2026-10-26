@@ -82,6 +82,8 @@ def predict_fault(reading: dict) -> dict:
         dict with prediction results
     """
     _load_model()
+    # Stored readings carry None for sensors a device does not have; the helpers expect absent keys
+    reading = {k: v for k, v in reading.items() if v is not None}
 
     # Rule-based detection (always runs)
     anomalies = detect_anomalies(reading)
@@ -94,6 +96,8 @@ def predict_fault(reading: dict) -> dict:
         "severity_score": severity_score,
         "severity": severity_label,
         "ml_available": _model is not None,
+        # The bundled classifier was trained on generated data (see model_metadata.json).
+        "model_training_data": "synthetic",
     }
 
     # ML-based prediction

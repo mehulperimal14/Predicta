@@ -3,13 +3,39 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PREDICTA – Industrial Machine Health Monitoring</title>
-  <meta name="description" content="AI-Based Industrial Machine Health Monitoring and Predictive Maintenance Dashboard"/>
+  <title>PREDICTA – Overview</title>
+  <meta name="description" content="Predicta overview: Segment A SCADA/PLC file analysis and Segment B live IoT monitoring"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="css/style.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    .segments { display:grid; grid-template-columns: 1fr 1fr; gap:22px; }
+    .segment { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; display:flex; flex-direction:column; gap:16px; }
+    .segment-tag { font-size:11px; font-weight:800; letter-spacing:1.5px; color:var(--accent); text-transform:uppercase; }
+    .segment h2 { font-size:20px; font-weight:800; color:#fff; margin:2px 0 0; }
+    .segment p { font-size:12.5px; color:var(--text-dim); line-height:1.6; margin:0; }
+    .flow { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); background:rgba(0,0,0,0.25);
+            border:1px solid var(--border); border-radius:8px; padding:10px 12px; line-height:1.7; }
+    .stats { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .stat { background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; padding:12px; }
+    .stat-value { font-size:22px; font-weight:800; color:#fff; }
+    .stat-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
+    .list { display:flex; flex-direction:column; gap:8px; }
+    .row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--border);
+           border-radius:8px; background:rgba(255,255,255,0.02); font-size:12px; color:var(--text-dim); text-decoration:none; }
+    .row:hover { border-color:var(--border-accent); }
+    .row strong { color:#fff; }
+    .pill { font-size:10px; font-weight:800; padding:3px 10px; border-radius:12px; letter-spacing:0.5px; white-space:nowrap; }
+    .p-NORMAL, .p-HEALTHY { background:rgba(0,255,136,0.15); color:var(--green); }
+    .p-WATCH { background:rgba(255,215,0,0.15); color:var(--yellow); }
+    .p-WARNING, .p-DEGRADING { background:rgba(255,140,0,0.18); color:var(--orange); }
+    .p-CRITICAL { background:rgba(255,68,68,0.2); color:var(--red); }
+    .p-NONE { background:rgba(255,255,255,0.06); color:var(--text-muted); }
+    .empty { font-size:12px; color:var(--text-muted); padding:14px; text-align:center; border:1px dashed var(--border); border-radius:8px; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:auto; }
+    .advisory { margin-top:22px; font-size:11px; color:var(--text-muted); line-height:1.6; padding:14px 18px; border:1px solid var(--border); border-radius:var(--radius); }
+    @media (max-width: 1000px) { .segments { grid-template-columns: 1fr; } }
+  </style>
 </head>
 <body>
   <!-- ═══ SIDEBAR ══════════════════════════════════════════════════════════ -->
@@ -23,26 +49,29 @@
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section-label">Operations</div>
       <a href="index.html" class="nav-item active" id="nav-dashboard">
         <span class="nav-icon">◈</span> Overview
       </a>
+      <div class="nav-section-label" style="margin-top:18px">A · SCADA / PLC File Analysis</div>
       <a href="upload.html" class="nav-item" id="nav-upload">
-        <span class="nav-icon">⇪</span> Upload & Ingest
-      </a>
-      <a href="analytics.html" class="nav-item" id="nav-analytics">
-        <span class="nav-icon">◉</span> Asset Health
+        <span class="nav-icon">⇪</span> Upload &amp; Map Tags
       </a>
       <a href="ai_analysis.html" class="nav-item" id="nav-ai">
-        <span class="nav-icon">🔬</span> AI Investigation
+        <span class="nav-icon">🔬</span> Root-Cause Investigation
       </a>
+      <div class="nav-section-label" style="margin-top:18px">B · Live IoT Monitoring</div>
+      <a href="live.html" class="nav-item" id="nav-live">
+        <span class="nav-icon">📡</span> Live Monitor
+      </a>
+      <a href="analytics.html" class="nav-item" id="nav-analytics">
+        <span class="nav-icon">◉</span> Health Trends
+      </a>
+      <div class="nav-section-label" style="margin-top:18px">Operations &amp; Admin</div>
       <a href="maintenance.html" class="nav-item" id="nav-maintenance">
         <span class="nav-icon">◫</span> Maintenance
       </a>
-
-      <div class="nav-section-label" style="margin-top:20px">Integration & Admin</div>
       <a href="notifications.html" class="nav-item" id="nav-notifications">
-        <span class="nav-icon">🔔</span> Telegram & SMS
+        <span class="nav-icon">🔔</span> Telegram &amp; SMS
       </a>
       <a href="reports.html" class="nav-item" id="nav-reports">
         <span class="nav-icon">◧</span> Reports
@@ -53,32 +82,21 @@
     </nav>
 
     <div class="sidebar-machine">
-      <div class="machine-label">Active Machine</div>
-      <div class="machine-id" id="sidebar-device-id">MOTOR_01</div>
-      <div class="machine-type">Industrial Equipment</div>
-      <div class="machine-status">
-        <span class="status-dot" id="sidebar-status-dot"></span>
-        <span id="sidebar-status-text">Ready</span>
-      </div>
+      <div class="machine-label">Live Device</div>
+      <div class="machine-id" data-selected-device>MOTOR_01</div>
+      <div class="machine-type">Selected on Live Monitor</div>
     </div>
   </aside>
 
-
   <!-- ═══ MAIN CONTENT ═════════════════════════════════════════════════════ -->
   <main class="main-content">
-
-    <!-- Top Bar -->
     <header class="topbar">
       <div class="topbar-left">
-        <h1 class="page-title">Live Dashboard</h1>
-        <div class="breadcrumb">Machine Health Monitoring / Real-Time Analysis</div>
+        <h1 class="page-title">Overview</h1>
+        <div class="breadcrumb">Two ways to find out what is happening to a machine – before it breaks</div>
       </div>
       <div class="topbar-right">
         <div class="topbar-time" id="topbar-clock">--:--:--</div>
-        <div class="alert-badge" id="alert-badge" title="Active Alerts">
-          <span class="badge-icon">🔔</span>
-          <span class="badge-count" id="alert-count">0</span>
-        </div>
         <div class="user-pill">
           <span class="user-avatar">A</span>
           <span class="user-name" id="user-name">Admin</span>
@@ -87,296 +105,123 @@
       </div>
     </header>
 
-    <!-- Predicta 2.0 File Ingestion & Fleet Action Banner -->
-    <div style="background:linear-gradient(135deg,rgba(0,212,255,0.08),rgba(15,17,23,0.95));border:1px solid var(--border-accent);border-radius:var(--radius);padding:20px 24px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
-      <div>
-        <div style="font-size:16px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;">
-          <span>⚡ Predicta 2.0 Universal PLC / SCADA Analytics</span>
-          <span class="badge" style="background:rgba(0,255,136,0.15);color:var(--green);">Advisory System</span>
+    <div class="segments">
+      <!-- ── Segment A ─────────────────────────────────────────────────── -->
+      <section class="segment">
+        <div>
+          <div class="segment-tag">Segment A</div>
+          <h2>SCADA / PLC File Analysis</h2>
         </div>
-        <p style="font-size:12px;color:var(--text-dim);margin-top:6px;max-width:700px;line-height:1.5;">
-          Analyse historical machine behavior, detect abnormal trends, and investigate failure risks from your existing plant historian or PLC/SCADA CSV/Excel exports — without buying or installing new physical sensors.
+        <p>
+          Plant engineers upload what their PLC, SCADA, DCS or historian already recorded (CSV, XLSX, XLS).
+          Predicta re-evaluates the whole history against nine failure signatures and explains which
+          causes could have led – or are leading – to damage, with evidence and an inspection checklist.
+          No new sensors needed.
         </p>
-      </div>
-      <div style="display:flex;gap:12px;align-items:center;">
-        <a href="upload.html" class="btn-action" style="text-decoration:none;">
-          <span>⇪ Upload PLC / SCADA Data</span> →
-        </a>
-        <a href="ai_analysis.html" class="btn-dl" style="padding:10px 16px;font-size:12px;">
-          <span>🔬 AI Investigation</span>
-        </a>
-      </div>
+        <div class="flow">Upload file → quality score → map tags → 5-layer risk → change-points → trend forecast → 9 fault signatures</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-value" id="a-datasets">–</div><div class="stat-label">Files uploaded</div></div>
+          <div class="stat"><div class="stat-value" id="a-analyses">–</div><div class="stat-label">Analyses run</div></div>
+          <div class="stat"><div class="stat-value" id="a-elevated">–</div><div class="stat-label">Warning / critical</div></div>
+        </div>
+        <div class="list" id="a-list"><div class="empty">Loading recent analyses…</div></div>
+        <div class="actions">
+          <a href="upload.html" class="btn-action" style="text-decoration:none;">⇪ Upload PLC / SCADA file</a>
+          <a href="ai_analysis.html" class="btn-dl" style="padding:10px 16px;font-size:12px;">🔬 Latest investigation</a>
+        </div>
+      </section>
+
+      <!-- ── Segment B ─────────────────────────────────────────────────── -->
+      <section class="segment">
+        <div>
+          <div class="segment-tag">Segment B</div>
+          <h2>Live IoT Monitoring</h2>
+        </div>
+        <p>
+          ESP32 or other microcontrollers stream sensor readings continuously to the cloud. Predicta
+          re-evaluates every device on a rolling window and tells you whether it is healthy, which way
+          each variable is trending, and roughly how long until it reaches a breakdown limit if nothing changes.
+        </p>
+        <div class="flow">ESP32 → HTTPS (device key) → rolling window → rules + anomalies → trend forecast → status &amp; live alerts</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-value" id="b-devices">–</div><div class="stat-label">Devices</div></div>
+          <div class="stat"><div class="stat-value" id="b-online">–</div><div class="stat-label">Online now</div></div>
+          <div class="stat"><div class="stat-value" id="b-attention">–</div><div class="stat-label">Degrading / critical</div></div>
+        </div>
+        <div class="list" id="b-list"><div class="empty">Loading devices…</div></div>
+        <div class="actions">
+          <a href="live.html" class="btn-action" style="text-decoration:none;">📡 Open Live Monitor</a>
+          <a href="analytics.html" class="btn-dl" style="padding:10px 16px;font-size:12px;">◉ Health trends</a>
+        </div>
+      </section>
     </div>
 
-    <!-- ── SECTION A: LIVE MONITORING ──────────────────────────────────── -->
-    <section class="dashboard-section">
-
-      <div class="section-header">
-        <div class="section-badge">SECTION A</div>
-        <h2 class="section-title">Live Machine Monitoring</h2>
-        <div class="live-indicator">
-          <span class="live-dot"></span> LIVE
-        </div>
-        <div class="last-update">Last update: <span id="last-update-time">--</span></div>
-      </div>
-
-      <!-- Health Score Banner -->
-      <div class="health-banner" id="health-banner">
-        <div class="health-main">
-          <div class="health-score-ring">
-            <svg class="ring-svg" viewBox="0 0 120 120">
-              <circle class="ring-bg" cx="60" cy="60" r="52"/>
-              <circle class="ring-fill" id="health-ring" cx="60" cy="60" r="52"
-                      stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
-            </svg>
-            <div class="ring-content">
-              <div class="health-value" id="health-score">--</div>
-              <div class="health-label">Health</div>
-            </div>
-          </div>
-          <div class="health-details">
-            <div class="health-status-text" id="health-status-text">Initializing…</div>
-            <div class="health-meta">
-              <span>Efficiency: <strong id="efficiency-val">--%</strong></span>
-              <span>Run Hours: <strong id="run-hours-val">--h</strong></span>
-              <span>Start Cycles: <strong id="start-cycles-val">--</strong></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="health-badges">
-          <div class="hbadge" id="badge-overload">
-            <span class="hbadge-icon">⚡</span>
-            <span class="hbadge-label">Overload</span>
-            <span class="hbadge-val" id="badge-overload-val">OK</span>
-          </div>
-          <div class="hbadge" id="badge-overheat">
-            <span class="hbadge-icon">🌡</span>
-            <span class="hbadge-label">Overheat</span>
-            <span class="hbadge-val" id="badge-overheat-val">OK</span>
-          </div>
-          <div class="hbadge" id="badge-vibration">
-            <span class="hbadge-icon">📳</span>
-            <span class="hbadge-label">Vibration</span>
-            <span class="hbadge-val" id="badge-vibration-val">OK</span>
-          </div>
-          <div class="hbadge" id="badge-running">
-            <span class="hbadge-icon">▶</span>
-            <span class="hbadge-label">Motor</span>
-            <span class="hbadge-val" id="badge-running-val">RUNNING</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- KPI Cards Row 1 -->
-      <div class="kpi-grid">
-        <div class="kpi-card" id="kpi-voltage">
-          <div class="kpi-icon">⚡</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Voltage</div>
-            <div class="kpi-value"><span id="kpi-voltage-val">---</span><span class="kpi-unit">V</span></div>
-            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-voltage-bar"></div></div>
-            <div class="kpi-sub">Normal: 380–440V</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpi-current">
-          <div class="kpi-icon">〰</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Current</div>
-            <div class="kpi-value"><span id="kpi-current-val">---</span><span class="kpi-unit">A</span></div>
-            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-current-bar"></div></div>
-            <div class="kpi-sub">FLC: 3.5A | OL: 4.5A</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpi-temp">
-          <div class="kpi-icon">🌡</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Motor Temp</div>
-            <div class="kpi-value"><span id="kpi-temp-val">---</span><span class="kpi-unit">°C</span></div>
-            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-temp-bar"></div></div>
-            <div class="kpi-sub">Warn: 75°C | Crit: 85°C</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpi-vibration">
-          <div class="kpi-icon">📳</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Vibration</div>
-            <div class="kpi-value"><span id="kpi-vib-val">---</span><span class="kpi-unit">g</span></div>
-            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-vib-bar"></div></div>
-            <div class="kpi-sub">Warn: 0.5g | Crit: 1.0g</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpi-rpm">
-          <div class="kpi-icon">⚙</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Speed (RPM)</div>
-            <div class="kpi-value"><span id="kpi-rpm-val">----</span><span class="kpi-unit">RPM</span></div>
-            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-rpm-bar"></div></div>
-            <div class="kpi-sub">Rated: 1440 RPM</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpi-power">
-          <div class="kpi-icon">⚡</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Power</div>
-            <div class="kpi-value"><span id="kpi-power-val">---</span><span class="kpi-unit">kW</span></div>
-            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-power-bar"></div></div>
-            <div class="kpi-sub">Rated: 1.5 kW</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpi-bearing">
-          <div class="kpi-icon">⭕</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Bearing Temp</div>
-            <div class="kpi-value"><span id="kpi-bearing-val">---</span><span class="kpi-unit">°C</span></div>
-            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-bearing-bar"></div></div>
-            <div class="kpi-sub">Warn: 70°C</div>
-          </div>
-        </div>
-
-        <div class="kpi-card" id="kpi-pressure">
-          <div class="kpi-icon">💧</div>
-          <div class="kpi-body">
-            <div class="kpi-label">Pump Pressure</div>
-            <div class="kpi-value"><span id="kpi-pressure-val">---</span><span class="kpi-unit">kPa</span></div>
-            <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-pressure-bar"></div></div>
-            <div class="kpi-sub">Range: 50–600 kPa</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Row -->
-      <div class="charts-grid">
-        <div class="chart-card chart-lg">
-          <div class="chart-header">
-            <span class="chart-title">Current & Voltage Trend</span>
-            <div class="chart-controls">
-              <button class="chart-btn active" onclick="setTimeRange(this, '1h')">1H</button>
-              <button class="chart-btn" onclick="setTimeRange(this, '6h')">6H</button>
-              <button class="chart-btn" onclick="setTimeRange(this, '24h')">24H</button>
-            </div>
-          </div>
-          <canvas id="chart-current-voltage" height="200"></canvas>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <span class="chart-title">Temperature Trend</span>
-          </div>
-          <canvas id="chart-temperature" height="200"></canvas>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <span class="chart-title">Vibration (g RMS)</span>
-          </div>
-          <canvas id="chart-vibration" height="200"></canvas>
-        </div>
-
-        <div class="chart-card chart-sm">
-          <div class="chart-header">
-            <span class="chart-title">Parameter Health</span>
-          </div>
-          <canvas id="chart-radar" height="250"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── SECTION B: PREDICTIVE MAINTENANCE ──────────────────────────── -->
-    <section class="dashboard-section" style="margin-top:32px">
-      <div class="section-header">
-        <div class="section-badge" style="background: linear-gradient(135deg,#ff6b35,#ff4444);">SECTION B</div>
-        <h2 class="section-title">AI Predictive Maintenance</h2>
-        <button class="btn-predict" id="btn-run-prediction" onclick="runPrediction()">
-          🤖 Run ML Prediction
-        </button>
-      </div>
-
-      <!-- Prediction Result Card -->
-      <div class="prediction-panel" id="prediction-panel">
-        <div class="pred-left">
-          <div class="pred-fault-type" id="pred-fault-type">—</div>
-          <div class="pred-root-cause" id="pred-root-cause">Run a prediction to see analysis results.</div>
-          <div class="pred-meta">
-            <div class="pred-meta-item">
-              <span class="pred-meta-label">Failure Probability</span>
-              <div class="pred-prob-bar">
-                <div class="pred-prob-fill" id="pred-prob-fill"></div>
-              </div>
-              <span class="pred-meta-val" id="pred-failure-prob">--%</span>
-            </div>
-            <div class="pred-meta-item">
-              <span class="pred-meta-label">ML Confidence</span>
-              <span class="pred-meta-val" id="pred-confidence">--%</span>
-            </div>
-            <div class="pred-meta-item">
-              <span class="pred-meta-label">Remaining Useful Life</span>
-              <span class="pred-meta-val" id="pred-rul">-- days</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="pred-right">
-          <div class="pred-severity-block" id="pred-severity-block">
-            <div class="pred-severity-label">SEVERITY</div>
-            <div class="pred-severity-val" id="pred-severity">–</div>
-            <div class="pred-score" id="pred-score">Score: --</div>
-          </div>
-          <div class="pred-urgency-block" id="pred-urgency-block">
-            <div class="pred-urgency-label">MAINTENANCE URGENCY</div>
-            <div class="pred-urgency-val" id="pred-urgency">–</div>
-          </div>
-          <div class="pred-recommendation">
-            <div class="pred-rec-title">🔧 Recommended Action</div>
-            <div class="pred-rec-text" id="pred-recommendation">—</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Active Alerts + Fault Probability Chart -->
-      <div class="pred-bottom-grid">
-        <div class="alerts-panel">
-          <div class="panel-header">
-            <span class="panel-title">Active Fault Alerts</span>
-            <span class="panel-badge" id="active-faults-count">0</span>
-          </div>
-          <div class="alerts-list" id="alerts-list">
-            <div class="no-alerts">✅ No active fault alerts</div>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <span class="chart-title">Fault Probability Breakdown</span>
-          </div>
-          <canvas id="chart-fault-prob" height="250"></canvas>
-        </div>
-
-        <div class="maintenance-schedule-panel">
-          <div class="panel-header">
-            <span class="panel-title">Upcoming Maintenance</span>
-            <a href="maintenance.html" class="panel-link">View All →</a>
-          </div>
-          <div class="maintenance-list" id="maintenance-list">
-            <div class="loading-text">Loading schedule…</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
+    <div class="advisory">
+      ⚠ Predicta is an advisory system. It never writes to PLCs, DCS controllers, actuators or safety interlocks.
+      Forecasts extrapolate the current trend and are not guarantees. All interventions must be verified and carried out by
+      qualified plant personnel under your site's safety procedures.
+    </div>
   </main>
 
-  <!-- ═══ NOTIFICATION TOAST ═══════════════════════════════════════════════ -->
-  <div class="toast-container" id="toast-container"></div>
-
   <script src="js/api.js"></script>
-  <script src="js/charts.js"></script>
-  <script src="js/dashboard.js"></script>
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      if (!API.getToken()) { window.location.href = "login.html"; return; }
+      const u = API.getUser(); if (u) document.getElementById("user-name").textContent = u.username;
+      const clock = () => document.getElementById("topbar-clock").textContent = new Date().toLocaleTimeString("en-IN", { hour12: false });
+      clock(); setInterval(clock, 1000);
+      loadSegmentA();
+      loadSegmentB();
+      setInterval(loadSegmentB, 15000);
+    });
+
+    function logout() { API.clearTokens(); window.location.href = "login.html"; }
+
+    async function loadSegmentA() {
+      const [datasets, analyses] = await Promise.all([API.getDatasets(), API.getAnalyses(6)]);
+      document.getElementById("a-datasets").textContent = Array.isArray(datasets) ? datasets.length : "–";
+      const runs = Array.isArray(analyses) ? analyses : [];
+      document.getElementById("a-analyses").textContent = runs.length;
+      document.getElementById("a-elevated").textContent = runs.filter(r => ["WARNING", "CRITICAL"].includes(r.risk_category)).length;
+      const list = document.getElementById("a-list");
+      if (!runs.length) {
+        list.innerHTML = '<div class="empty">No analyses yet. Upload a file – or try one of the sample datasets on the upload page.</div>';
+        return;
+      }
+      list.innerHTML = runs.map(r => `
+        <a class="row" href="ai_analysis.html?analysis_id=${r.id}">
+          <span><strong>${API.esc(r.asset_id)}</strong> · ${API.esc(r.filename || "dataset " + r.dataset_id)}
+            <br/><span style="font-size:11px;color:var(--text-muted);">${(r.rows_analyzed || 0).toLocaleString()} rows · ${r.created_at ? new Date(r.created_at + "Z").toLocaleString("en-IN") : ""}</span></span>
+          <span class="pill p-${API.esc(r.risk_category)}">${API.esc(r.risk_category)} ${Math.round(r.risk_score || 0)}</span>
+        </a>`).join("");
+    }
+
+    async function loadSegmentB() {
+      const fleet = await API.getFleet();
+      const devices = Array.isArray(fleet) ? fleet : [];
+      document.getElementById("b-devices").textContent = devices.length;
+      document.getElementById("b-online").textContent = devices.filter(d => d.online).length;
+      document.getElementById("b-attention").textContent =
+        devices.filter(d => ["DEGRADING", "CRITICAL"].includes(d.assessment?.status)).length;
+      const list = document.getElementById("b-list");
+      if (!devices.length) {
+        list.innerHTML = '<div class="empty">No devices registered. Register one on the Live Monitor page.</div>';
+        return;
+      }
+      list.innerHTML = devices.slice(0, 6).map(d => {
+        const status = d.assessment?.status || (d.last_seen ? "NONE" : "NONE");
+        const label = d.assessment?.status || (d.last_seen ? "NOT ASSESSED" : (d.streaming_enabled ? "NO DATA" : "NO KEY"));
+        const ttb = d.assessment?.time_to_breakdown;
+        const detail = ttb ? (ttb.hours === 0 ? `${ttb.variable} beyond limit` : `${ttb.variable} limit in ≈ ${API.fmtHours(ttb.hours)}`)
+                           : (d.online ? "streaming" : (d.last_seen ? "offline · last seen " + new Date(d.last_seen + "Z").toLocaleString("en-IN") : "never seen"));
+        return `
+          <a class="row" href="live.html" data-device="${API.esc(d.device_id)}" onclick="API.setSelectedDevice(this.dataset.device)">
+            <span><strong>${d.online ? "● " : "○ "}${API.esc(d.device_id)}</strong> · ${API.esc(d.name)}
+              <br/><span style="font-size:11px;color:var(--text-muted);">${API.esc(detail)}</span></span>
+            <span class="pill p-${API.esc(status)}">${API.esc(label)}</span>
+          </a>`;
+      }).join("");
+    }
+  </script>
 </body>
 </html>

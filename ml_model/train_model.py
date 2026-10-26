@@ -3,7 +3,11 @@ PREDICTA – Machine Learning Training Pipeline
 Industrial Predictive Maintenance Model
 
 Trains Random Forest (primary), XGBoost, SVM, and Isolation Forest
-on the AI4I 2020 Predictive Maintenance Dataset.
+on the AI4I 2020 Predictive Maintenance Dataset, or on a custom CSV.
+
+NOTE: the models committed in saved_models/ were trained on the synthetic
+sensor_training_data.csv (generate_sensor_dataset.py), not on AI4I. Their ~100%
+accuracy reflects separable generated classes, not real-world performance.
 
 Usage:
   python train_model.py                    # Use default AI4I dataset

@@ -23,6 +23,9 @@
     .layer-num { font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
     .layer-name { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 8px; }
     .layer-status { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+    .trend-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .trend-table th { text-align:left; font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; padding:8px; border-bottom:1px solid var(--border); }
+    .trend-table td { padding:8px; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text-dim); }
   </style>
 </head>
 <body>
@@ -37,31 +40,34 @@
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section-label">Operations</div>
-      <a href="index.html" class="nav-item">
+      <a href="index.html" class="nav-item" id="nav-dashboard">
         <span class="nav-icon">◈</span> Overview
       </a>
-      <a href="upload.html" class="nav-item">
-        <span class="nav-icon">⇪</span> Upload & Ingest
+      <div class="nav-section-label" style="margin-top:18px">A · SCADA / PLC File Analysis</div>
+      <a href="upload.html" class="nav-item" id="nav-upload">
+        <span class="nav-icon">⇪</span> Upload &amp; Map Tags
       </a>
-      <a href="analytics.html" class="nav-item">
-        <span class="nav-icon">◉</span> Asset Health
+      <a href="ai_analysis.html" class="nav-item active" id="nav-ai">
+        <span class="nav-icon">🔬</span> Root-Cause Investigation
       </a>
-      <a href="ai_analysis.html" class="nav-item active">
-        <span class="nav-icon">🔬</span> AI Investigation
+      <div class="nav-section-label" style="margin-top:18px">B · Live IoT Monitoring</div>
+      <a href="live.html" class="nav-item" id="nav-live">
+        <span class="nav-icon">📡</span> Live Monitor
       </a>
-      <a href="maintenance.html" class="nav-item">
+      <a href="analytics.html" class="nav-item" id="nav-analytics">
+        <span class="nav-icon">◉</span> Health Trends
+      </a>
+      <div class="nav-section-label" style="margin-top:18px">Operations &amp; Admin</div>
+      <a href="maintenance.html" class="nav-item" id="nav-maintenance">
         <span class="nav-icon">◫</span> Maintenance
       </a>
-
-      <div class="nav-section-label" style="margin-top:20px">Integration & Admin</div>
-      <a href="notifications.html" class="nav-item">
-        <span class="nav-icon">🔔</span> Telegram & SMS
+      <a href="notifications.html" class="nav-item" id="nav-notifications">
+        <span class="nav-icon">🔔</span> Telegram &amp; SMS
       </a>
-      <a href="reports.html" class="nav-item">
+      <a href="reports.html" class="nav-item" id="nav-reports">
         <span class="nav-icon">◧</span> Reports
       </a>
-      <a href="admin.html" class="nav-item">
+      <a href="admin.html" class="nav-item" id="nav-admin">
         <span class="nav-icon">◩</span> Administration
       </a>
     </nav>
@@ -148,6 +154,24 @@
       </div>
     </div>
 
+    <!-- Trend forecast & CUSUM change-points -->
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-header">
+        <div>
+          <span class="panel-title">Where was it heading? Trend forecast &amp; behaviour change-points</span>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;" id="forecast-note">
+            Linear trend of the most recent running data, extrapolated to engineering limits. Not a guarantee.
+          </div>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="trend-table">
+          <thead><tr><th>Variable</th><th>Trend / hour</th><th>Status</th><th>To warning</th><th>To critical</th><th>Behaviour shift since (CUSUM)</th></tr></thead>
+          <tbody id="forecast-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Run an analysis to see the forecast.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Section: 9-Signature Fault Investigation Hypotheses -->
     <div class="panel">
       <div class="panel-header">
@@ -157,7 +181,10 @@
             Scientific hypotheses evaluated strictly against measured and proxy tags. Inferences clearly disclose data limitations.
           </div>
         </div>
-        <button class="btn-action" onclick="window.print()">Print / Export Investigation</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn-dl" style="padding:9px 14px;font-size:12px;" id="btn-csv" onclick="downloadCsv()" disabled>⬇ CSV</button>
+          <button class="btn-action" onclick="window.print()">Print / Export Investigation</button>
+        </div>
       </div>
 
       <div id="hypotheses-container">
@@ -172,6 +199,13 @@
   <script src="js/api.js"></script>
   <script>
     let trendChart = null;
+    let currentAnalysisId = null;
+
+    async function downloadCsv() {
+      if (!currentAnalysisId) return;
+      const res = await API.downloadAnalysisCSV(currentAnalysisId);
+      if (res && res.error) alert(res.error);
+    }
 
     document.addEventListener("DOMContentLoaded", async () => {
       loadClock();
@@ -207,6 +241,8 @@
       const risk = data.risk || data.layer_results?.layer5_risk || {};
       const assetId = data.asset_id || "ASSET-01";
       document.getElementById("sidebar-asset-name").innerText = assetId;
+      currentAnalysisId = data.analysis_id || data.id || null;
+      document.getElementById("btn-csv").disabled = !currentAnalysisId;
 
       // Risk score & badge
       const score = Math.round(risk.risk_score || data.overall_risk_score || 0);
@@ -236,9 +272,11 @@
       // Layer 3
       const l3 = data.layer3_supervised || data.layer_results?.layer3_supervised || {};
       if (l3.available) {
+        const prAuc = l3.metrics?.pr_auc;
         document.getElementById("layer3-status").innerHTML = `
-          <strong>Model Trained:</strong> F1: ${l3.metrics?.f1_score || 0}, Precision: ${l3.metrics?.precision || 0}.<br/>
-          <span style="font-size:10px;color:var(--green);">Time-based split validated.</span>
+          <strong>Model Trained:</strong> PR-AUC: ${prAuc != null ? prAuc : "n/a"}, F1: ${l3.metrics?.f1_score || 0}, Precision: ${l3.metrics?.precision || 0}, Recall: ${l3.metrics?.recall || 0}.<br/>
+          <span style="font-size:10px;color:var(--green);">Trained on the past ${l3.train_samples} rows, tested on the later ${l3.test_samples}.</span>
+          ${l3.metrics?.ranking_metrics_note ? `<br/><span style="font-size:10px;">${API.esc(l3.metrics.ranking_metrics_note)}</span>` : ""}
         `;
       } else {
         document.getElementById("layer3-status").innerHTML = `
@@ -250,17 +288,20 @@
       const l4 = data.layer4_rul || data.layer_results?.layer4_rul || {};
       if (l4.available) {
         document.getElementById("layer4-status").innerHTML = `
-          <strong>${l4.rul_hours} hrs</strong> RUL estimated.<br/>
-          <span style="font-size:10px;color:var(--accent);">${l4.method}</span>
+          <strong>${l4.rul_hours === 0 ? "At failure level" : API.fmtHours(l4.rul_hours)}</strong> remaining (driven by ${API.esc(l4.driving_variable)}).<br/>
+          <span style="font-size:10px;color:var(--accent);">${API.esc(l4.message || l4.method)}</span>
         `;
       } else {
         document.getElementById("layer4-status").innerHTML = `
-          <span style="color:var(--text-muted);font-size:10px;">${l4.message || 'Remaining useful life unavailable: insufficient validated degradation or failure-history data.'}</span>
+          <span style="color:var(--text-muted);font-size:10px;">${API.esc(l4.message || 'Remaining useful life unavailable: insufficient validated degradation or failure-history data.')}</span>
         `;
       }
 
-      // Render Hypotheses
-      const hypotheses = data.hypotheses || [];
+      renderForecast(data.trend_forecast || l4.trend_forecast, data.changepoints || data.layer_results?.changepoints || {});
+
+      // Render Hypotheses (strongest evidence first)
+      const order = { STRONG: 0, MODERATE: 1, WEAK: 2, INSUFFICIENT: 3 };
+      const hypotheses = (data.hypotheses || []).slice().sort((a, b) => order[a.confidence] - order[b.confidence]);
       const hContainer = document.getElementById("hypotheses-container");
       if (hypotheses.length > 0) {
         hContainer.innerHTML = hypotheses.map(h => {
@@ -269,7 +310,7 @@
           return `
             <div class="hypothesis-card ${isAlert}">
               <div class="hypo-header">
-                <div class="hypo-title">${h.hypothesis}</div>
+                <div class="hypo-title">${API.esc(h.hypothesis)}</div>
                 <div style="display:flex;gap:6px;align-items:center;">
                   <span class="confidence-pill ${confClass}">Evidence: ${h.confidence}</span>
                   <span class="badge" style="background:rgba(0,212,255,0.1);color:var(--accent);">${h.category}</span>
@@ -278,22 +319,22 @@
 
               <div class="hypo-section-title">Supporting Observations & Measured Trends</div>
               <ul class="hypo-list">
-                ${h.supporting_evidence.map(e => `<li>${e}</li>`).join("")}
+                ${h.supporting_evidence.map(e => `<li>${API.esc(e)}</li>`).join("")}
               </ul>
 
               <div class="hypo-section-title">Alternative Root Causes to Rule Out</div>
               <ul class="hypo-list">
-                ${h.alternative_explanations.map(a => `<li>${a}</li>`).join("")}
+                ${h.alternative_explanations.map(a => `<li>${API.esc(a)}</li>`).join("")}
               </ul>
 
               <div class="hypo-section-title">Data & Sampling Limitations</div>
               <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4;">
-                ${h.data_limitations}
+                ${API.esc(h.data_limitations)}
               </div>
 
               <div class="hypo-section-title">Recommended Physical Inspections</div>
               <ul class="hypo-list">
-                ${h.recommended_actions.map(act => `<li style="color:var(--green);">${act}</li>`).join("")}
+                ${h.recommended_actions.map(act => `<li style="color:var(--green);">${API.esc(act)}</li>`).join("")}
               </ul>
             </div>
           `;
@@ -304,6 +345,32 @@
       if (data.charts && data.charts.timestamps) {
         renderChart(data.charts);
       }
+    }
+
+    function renderForecast(forecast, changepoints) {
+      const tbody = document.getElementById("forecast-tbody");
+      const vars = (forecast && forecast.variables) || [];
+      if (!vars.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">${API.esc(forecast?.reason || "No forecast available for this analysis.")}</td></tr>`;
+        return;
+      }
+      const colors = {
+        CRITICAL_LIMIT_EXCEEDED: "var(--red)", WARNING_LIMIT_EXCEEDED: "var(--orange)",
+        APPROACHING_LIMIT: "var(--yellow)", DRIFTING: "var(--accent)", STABLE: "var(--green)", INSUFFICIENT_DATA: "var(--text-muted)",
+      };
+      tbody.innerHTML = vars.map(v => {
+        const cp = changepoints[v.variable] || {};
+        const shift = cp.ongoing_shift ? (cp.ongoing_shift_timestamp || "row " + cp.ongoing_shift_row) : "—";
+        const slope = v.slope_per_hour != null ? (v.slope_per_hour > 0 ? "+" : "") + v.slope_per_hour.toFixed(3) + " " + (v.unit || "") : "—";
+        return `<tr>
+          <td style="color:#fff;">${API.esc(v.variable.replace(/_/g, " "))}</td>
+          <td>${API.esc(slope)}</td>
+          <td style="color:${colors[v.status] || "#fff"};font-weight:600;">${API.esc((v.status || "").replace(/_/g, " "))}</td>
+          <td>${API.fmtHours(v.hours_to_warning)}</td>
+          <td>${API.fmtHours(v.hours_to_critical)}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:11px;">${API.esc(shift)}</td>
+        </tr>`;
+      }).join("");
     }
 
     function renderChart(charts) {

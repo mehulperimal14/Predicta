@@ -98,9 +98,48 @@ const API = (() => {
     try { return JSON.parse(localStorage.getItem("predicta_user")); } catch(_) { return null; }
   }
 
+  // Segment B: the live device chosen on the Live Monitor page, shared by the other pages
+  function getSelectedDevice() {
+    try { return localStorage.getItem("predicta_device") || "MOTOR_01"; } catch (_) { return "MOTOR_01"; }
+  }
+  function setSelectedDevice(deviceId) {
+    try { localStorage.setItem("predicta_device", deviceId); } catch (_) {}
+  }
+
+  // Authenticated file download (the API only accepts the token in a header, never in the URL)
+  async function download(path, filename) {
+    const res = await fetch(`${BASE}${path}`, { headers: { "Authorization": `Bearer ${getToken()}` } });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.error || err.msg || `Download failed: HTTP ${res.status}` };
+    }
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return { success: true };
+  }
+
+  function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function fmtHours(h) {
+    if (h === null || h === undefined) return "—";
+    if (h === 0) return "now";
+    if (h < 1) return `${Math.max(1, Math.round(h * 60))} min`;
+    if (h < 48) return `${h.toFixed(1)} h`;
+    return `${(h / 24).toFixed(1)} days`;
+  }
+
   return {
     BASE,
     getToken, getRefresh, setTokens, clearTokens, getUser, login,
+    getSelectedDevice, setSelectedDevice, download, esc, fmtHours,
     get:    (path)        => request("GET",    path),
     post:   (path, body)  => request("POST",   path, body),
     patch:  (path, body)  => request("PATCH",  path, body),
@@ -114,7 +153,14 @@ const API = (() => {
     saveMapping:   (data) => request("POST", "/ingest/mappings", data),
     runAnalysis:   (datasetId, payload) => request("POST", `/ingest/analyze/${datasetId}`, payload),
     getAnalysis:   (analysisId) => request("GET", `/ingest/analysis/${analysisId}`),
+    getAnalyses:   (limit=10) => request("GET", `/ingest/analyses?limit=${limit}`),
     getSamples:    () => request("GET", "/ingest/samples"),
+
+    // Segment B: Live IoT Monitoring
+    getFleet:          () => request("GET", "/live/fleet"),
+    getAssessment:     (did, refresh=false) => request("GET", `/live/devices/${encodeURIComponent(did)}/assessment${refresh ? "?refresh=1" : ""}`),
+    registerDevice:    (data) => request("POST", "/live/devices", data),
+    rotateDeviceKey:   (did) => request("POST", `/live/devices/${encodeURIComponent(did)}/rotate-key`, {}),
 
     // Notifications (Telegram & SMS)
     getNotificationConfig:  () => request("GET", "/notifications/config"),
@@ -140,15 +186,14 @@ const API = (() => {
     completeMaintenance:(id, data) => request("POST", `/alerts/maintenance/${id}/complete`, data),
 
     // Reports
-    downloadReport:  (did, days=7) => {
-      const a = document.createElement("a");
-      a.href = `${BASE}/reports/generate/${did}?days=${days}&token=${getToken()}`;
-      a.target = "_blank";
-      a.download = `predicta_report_${did}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
+    downloadReport:       (did, days=7) => download(`/reports/generate/${encodeURIComponent(did)}?days=${days}`, `predicta_report_${did}.pdf`),
+    downloadTelemetryCSV: (did, days=7) => download(`/reports/telemetry/${encodeURIComponent(did)}.csv?days=${days}`, `predicta_telemetry_${did}_${days}d.csv`),
+    downloadAnalysisCSV:  (id) => download(`/reports/analysis/${id}.csv`, `predicta_analysis_${id}.csv`),
   };
 })();
 
+
+// Sidebar: show the live device the user last selected on the Live Monitor page
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-selected-device]").forEach(el => { el.textContent = API.getSelectedDevice(); });
+});

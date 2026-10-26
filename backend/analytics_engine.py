@@ -6,7 +6,13 @@ and cross-variable relationships without future data leakage.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
+
+# Continuous process variables that get rolling features, CUSUM and trend forecasts.
+TREND_VARIABLES = [
+    "motor_temp", "bearing_temp", "discharge_temp", "current", "voltage", "vibration_rms",
+    "pressure", "differential_pressure", "flow_rate", "rpm", "torque",
+]
 
 
 def compute_time_series_features(
@@ -46,7 +52,7 @@ def compute_time_series_features(
         features_df["_std_motor_running"] = is_running.astype(int)
 
     # ── 2. Rolling Statistics (Mean, Std, Min, Max, EWMA, Rate of Change) ──────
-    active_vars = [k for k in ["motor_temp", "bearing_temp", "current", "voltage", "vibration_rms", "pressure", "flow_rate", "rpm"] if f"_std_{k}" in features_df.columns]
+    active_vars = [k for k in TREND_VARIABLES if f"_std_{k}" in features_df.columns]
     
     for var in active_vars:
         s = features_df[f"_std_{var}"]
@@ -127,5 +133,67 @@ def detect_cusum_changepoints(
             changepoints.append(i)
             gp[i] = 0
             gn[i] = 0
-            
+
     return changepoints
+
+
+def running_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """Rows where the machine is running (state filtering). Falls back to all rows."""
+    if "_std_motor_running" in df.columns:
+        mask = pd.to_numeric(df["_std_motor_running"], errors="coerce").fillna(0) > 0
+        if mask.any():
+            return df[mask]
+    return df
+
+
+def compute_changepoints(
+    df: pd.DataFrame,
+    timestamp_col: Optional[str] = None,
+    threshold: float = 4.0,
+    drift: float = 0.5
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Runs two-sided CUSUM on every mapped trend variable (running rows only).
+    Answers "when did this machine's behaviour change?" for both segments.
+
+    CUSUM re-arms after each alarm, so a sustained shift produces a dense run of
+    detections, while daily load / ambient cycles produce short scattered ones.
+    The start of the run that continues to the end of the data is reported as the
+    ongoing shift – the onset of the machine's current abnormal behaviour.
+    Row values are original DataFrame index labels so callers can line them up.
+    """
+    running = running_rows(df)
+    results = {}
+
+    def _label_info(series, position):
+        label = series.index[position]
+        row = int(label) if isinstance(label, (int, np.integer)) else str(label)
+        ts = None
+        if timestamp_col and timestamp_col in running.columns:
+            value = running.loc[label, timestamp_col]
+            ts = str(value) if pd.notnull(value) else None
+        return row, ts
+
+    for var in TREND_VARIABLES:
+        col = f"_std_{var}"
+        if col not in running.columns:
+            continue
+        series = pd.to_numeric(running[col], errors="coerce").dropna()
+        positions = detect_cusum_changepoints(series, threshold=threshold, drift=drift)
+        entry = {"count": len(positions), "first_row": None, "first_timestamp": None,
+                 "ongoing_shift": False, "ongoing_shift_row": None, "ongoing_shift_timestamp": None,
+                 "series_length": int(len(series))}
+        if positions:
+            entry["first_row"], entry["first_timestamp"] = _label_info(series, positions[0])
+
+            max_gap = max(10, int(len(series) * 0.02))
+            if len(series) - 1 - positions[-1] <= max_gap:
+                start = len(positions) - 1
+                while start > 0 and positions[start] - positions[start - 1] <= max_gap:
+                    start -= 1
+                # A handful of detections at the very end is noise, not a sustained shift
+                if len(positions) - start >= 5:
+                    entry["ongoing_shift"] = True
+                    entry["ongoing_shift_row"], entry["ongoing_shift_timestamp"] = _label_info(series, positions[start])
+        results[var] = entry
+    return results
