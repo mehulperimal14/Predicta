@@ -3,6 +3,18 @@
  * Target: ESP32 DevKit V1
  * System: 3-Phase Induction Motor + Water Pump Monitoring
  *
+ * Segment B – Live IoT Monitoring. Streams readings to the Predicta cloud backend.
+ *
+ * Transport (choose one below):
+ *   - HTTPS (default): POST /api/live/ingest with header X-Device-Key. Works with any
+ *     cloud host (Render, Railway, …) – no broker needed.
+ *   - MQTT: publish to a Mosquitto broker; the backend bridge (MQTT_ENABLED=true) ingests it.
+ *
+ * Setup:
+ *   1. In Predicta → Live Monitor → "Register device", use the same DEVICE_ID as below.
+ *   2. Paste the key shown once into DEVICE_KEY.
+ *   3. Set PREDICTA_INGEST_URL to your deployment.
+ *
  * Libraries Required:
  *   - PubSubClient (MQTT)
  *   - ArduinoJson
@@ -10,11 +22,15 @@
  *   - MPU6050 by Electronic Cats
  *   - DHT sensor library by Adafruit
  *   - ModbusMaster (for Modbus RTU slave)
+ *   - HTTPClient / WiFiClientSecure (bundled with the ESP32 core)
  *
  * Install via Arduino Library Manager
  */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <time.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <OneWire.h>
@@ -24,14 +40,35 @@
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 
-// ─── WiFi + MQTT Configuration ────────────────────────────────────────────────
+// ─── Transport selection ──────────────────────────────────────────────────────
+#define TRANSPORT_HTTPS 1                 // 1 = HTTPS to the cloud, 0 = MQTT broker
+
+// ─── WiFi Configuration ───────────────────────────────────────────────────────
 const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char* DEVICE_ID     = "MOTOR_01";
+
+// ─── Predicta Cloud (HTTPS) ───────────────────────────────────────────────────
+const char* PREDICTA_INGEST_URL = "https://predicta-i6vf.onrender.com/api/live/ingest";
+const char* DEVICE_KEY          = "pdk_PASTE_THE_KEY_SHOWN_AT_REGISTRATION";
+// PEM root certificate of your host. Leave empty only for bench testing: the
+// connection is then encrypted but the server identity is NOT verified.
+const char* ROOT_CA = "";
+
+// ─── MQTT (only when TRANSPORT_HTTPS = 0) ─────────────────────────────────────
 const char* MQTT_SERVER   = "192.168.1.100";    // Node-RED / Mosquitto broker IP
 const int   MQTT_PORT     = 1883;
 const char* MQTT_TOPIC    = "predicta/sensor/data";
 const char* MQTT_ALERT    = "predicta/alerts";
-const char* DEVICE_ID     = "MOTOR_01";
+
+// ─── Timing ───────────────────────────────────────────────────────────────────
+#define SAMPLE_INTERVAL_MS   2000          // local sampling, alarm relay, OLED
+#if TRANSPORT_HTTPS
+#define PUBLISH_INTERVAL_MS  10000         // one HTTPS request every 10 s
+#else
+#define PUBLISH_INTERVAL_MS  2000
+#endif
+#define BUFFER_CAPACITY      30            // readings kept while the cloud is unreachable
 
 // ─── Pin Definitions ──────────────────────────────────────────────────────────
 #define PIN_CURRENT       34   // ACS712-30A analog out
@@ -70,6 +107,9 @@ const char* DEVICE_ID     = "MOTOR_01";
 // ─── Objects ──────────────────────────────────────────────────────────────────
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
+WiFiClientSecure httpsClient;
+String offlineBuffer[BUFFER_CAPACITY];     // JSON readings awaiting upload (need NTP time)
+int bufferCount = 0;
 OneWire oneWireMotor(PIN_DS18B20_MOTOR);
 OneWire oneWireBear(PIN_DS18B20_BEAR);
 DallasTemperature motorTempSensor(&oneWireMotor);
@@ -81,6 +121,7 @@ Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 // ─── Global Variables ─────────────────────────────────────────────────────────
 volatile unsigned long rpmPulseCount = 0;
 unsigned long lastRpmCalc = 0;
+unsigned long lastSample = 0;
 unsigned long lastPublish = 0;
 unsigned long motorStartTime = 0;
 bool motorRunning = false;
@@ -121,11 +162,21 @@ void setup() {
   }
   oledSplash();
 
-  // WiFi + MQTT
+  // WiFi, clock (readings carry real UTC timestamps), transport
   connectWiFi();
+  configTime(0, 0, "pool.ntp.org", "time.google.com");
+#if TRANSPORT_HTTPS
+  if (strlen(ROOT_CA) > 0) {
+    httpsClient.setCACert(ROOT_CA);
+  } else {
+    httpsClient.setInsecure();
+    Serial.println("WARNING: ROOT_CA empty – server certificate NOT verified (bench testing only)");
+  }
+#else
   mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
   mqttClient.setCallback(mqttCallback);
   connectMQTT();
+#endif
 
   motorStartTime = millis();
   motorRunning = true;
@@ -136,14 +187,16 @@ void setup() {
 
 // ─── Main Loop ────────────────────────────────────────────────────────────────
 void loop() {
+#if !TRANSPORT_HTTPS
   if (!mqttClient.connected()) connectMQTT();
   mqttClient.loop();
+#endif
 
   unsigned long now = millis();
 
-  // Publish sensor data every 2 seconds
-  if (now - lastPublish >= 2000) {
-    lastPublish = now;
+  // Sample every SAMPLE_INTERVAL_MS; upload every PUBLISH_INTERVAL_MS
+  if (now - lastSample >= SAMPLE_INTERVAL_MS) {
+    lastSample = now;
 
     // Read all sensors
     float current     = readCurrentRMS();
@@ -158,13 +211,16 @@ void loop() {
     float power       = calculatePower(voltage, current, POWER_FACTOR);
     float runHours    = (millis() - motorStartTime) / 3600000.0;
 
-    // Accumulate energy
-    totalEnergyKWh += power * (2.0 / 3600000.0);  // kWh = kW × hours
+    // Accumulate energy: kWh = kW × hours
+    totalEnergyKWh += power * (SAMPLE_INTERVAL_MS / 3600000.0);
 
     // Build JSON payload
     StaticJsonDocument<512> doc;
     doc["device_id"]     = DEVICE_ID;
-    doc["timestamp"]     = now;
+    // Epoch seconds once NTP has synced; otherwise omitted and the server stamps arrival time.
+    // (millis() is time since boot and must never be sent as a timestamp.)
+    time_t epoch = time(nullptr);
+    if (epoch > 1700000000) doc["timestamp"] = (uint32_t)epoch;
     doc["voltage"]       = round(voltage * 10) / 10.0;
     doc["current"]       = round(current * 100) / 100.0;
     doc["motor_temp"]    = round(motorTemp * 10) / 10.0;
@@ -186,9 +242,19 @@ void loop() {
     doc["high_vibration"]= (vibration > VIBRATION_WARNING);
     doc["low_rpm"]       = (rpm < RPM_LOW_LIMIT && motorRunning);
 
-    char payload[512];
-    serializeJson(doc, payload);
-    mqttClient.publish(MQTT_TOPIC, payload);
+    if (now - lastPublish >= PUBLISH_INTERVAL_MS) {
+      lastPublish = now;
+#if TRANSPORT_HTTPS
+      String reading;
+      serializeJson(doc, reading);
+      publishHttps(reading, doc.containsKey("timestamp"));
+#else
+      doc["device_key"] = DEVICE_KEY;   // optional: the bridge verifies it when present
+      char payload[512];
+      serializeJson(doc, payload);
+      mqttClient.publish(MQTT_TOPIC, payload);
+#endif
+    }
 
     // Local alarm relay
     if (current > CURRENT_OVERLOAD || motorTemp > TEMP_CRITICAL || vibration > VIBRATION_CRITICAL) {
@@ -280,6 +346,52 @@ float readPressure() {
 
 float calculatePower(float v, float i, float pf) {
   return (v * i * pf * 1.732) / 1000.0;  // kW (3-phase)
+}
+
+// ─── HTTPS upload to Predicta (Segment B) ─────────────────────────────────────
+
+int postJson(const String& body) {
+  HTTPClient http;
+  http.begin(httpsClient, PREDICTA_INGEST_URL);
+  http.setTimeout(8000);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-Device-Key", DEVICE_KEY);
+  int code = http.POST(body);
+  http.end();
+  return code;
+}
+
+void publishHttps(const String& reading, bool hasTimestamp) {
+  if (WiFi.status() != WL_CONNECTED) connectWiFi();
+
+  int code = (WiFi.status() == WL_CONNECTED) ? postJson(reading) : -1;
+  if (code == 201) {
+    // Back online: flush readings buffered during the outage as one batch
+    if (bufferCount > 0) {
+      String batch = String("{\"device_id\":\"") + DEVICE_ID + "\",\"readings\":[";
+      for (int i = 0; i < bufferCount; i++) {
+        if (i) batch += ",";
+        batch += offlineBuffer[i];
+      }
+      batch += "]}";
+      if (postJson(batch) == 201) bufferCount = 0;
+    }
+    return;
+  }
+  if (code == 401) {
+    Serial.println("[HTTPS] 401 – DEVICE_ID / DEVICE_KEY rejected. Re-register or rotate the key.");
+    return;   // retrying with a bad key will never succeed
+  }
+
+  Serial.printf("[HTTPS] Upload failed (code %d); buffering\n", code);
+  // Only readings with a real timestamp can be replayed later
+  if (hasTimestamp) {
+    if (bufferCount == BUFFER_CAPACITY) {      // drop the oldest
+      for (int i = 1; i < BUFFER_CAPACITY; i++) offlineBuffer[i - 1] = offlineBuffer[i];
+      bufferCount--;
+    }
+    offlineBuffer[bufferCount++] = reading;
+  }
 }
 
 // ─── WiFi + MQTT ──────────────────────────────────────────────────────────────

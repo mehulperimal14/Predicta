@@ -100,6 +100,25 @@ STANDARD_VARIABLES = {
         "required": False,
         "aliases": ["flow", "flow_rate", "discharge_flow", "lpm", "m3h", "ft_101", "volumetric_flow"]
     },
+    # Listed after the generic tags so a plain "Temp" / "Pressure" column is not claimed here first.
+    "discharge_temp": {
+        "label": "Discharge / Outlet Temperature (°C)",
+        "category": "Temperature",
+        "required": False,
+        "aliases": ["discharge_temp", "discharge_temperature", "t_discharge", "outlet_temp", "stage_temp", "air_discharge_temp", "te_201"]
+    },
+    "torque": {
+        "label": "Drive Torque (N·m or %)",
+        "category": "Mechanical",
+        "required": False,
+        "aliases": ["torque", "drive_torque", "shaft_torque", "motor_torque", "load_torque", "torque_nm", "torque_pct"]
+    },
+    "differential_pressure": {
+        "label": "Differential Pressure across Filter / Exchanger (kPa)",
+        "category": "Process",
+        "required": False,
+        "aliases": ["differential_pressure", "diff_pressure", "delta_p", "filter_dp", "dp_filter", "pressure_drop", "pdt_101"]
+    },
     "fault_code": {
         "label": "PLC / Drive Fault Code",
         "category": "Alarms",

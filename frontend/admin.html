@@ -29,21 +29,41 @@
     <div class="logo-text"><span class="logo-name">PREDICTA 2.0</span><span class="logo-tag">Industrial AI</span></div>
   </div>
   <nav class="sidebar-nav">
-    <div class="nav-section-label">Operations</div>
-    <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Overview</a>
-    <a href="upload.html" class="nav-item"><span class="nav-icon">⇪</span> Upload & Ingest</a>
-    <a href="analytics.html" class="nav-item"><span class="nav-icon">◉</span> Asset Health</a>
-    <a href="ai_analysis.html" class="nav-item"><span class="nav-icon">🔬</span> AI Investigation</a>
-    <a href="maintenance.html" class="nav-item"><span class="nav-icon">◫</span> Maintenance</a>
-    <div class="nav-section-label" style="margin-top:20px">Integration & Admin</div>
-    <a href="notifications.html" class="nav-item"><span class="nav-icon">🔔</span> Telegram & SMS</a>
-    <a href="reports.html" class="nav-item"><span class="nav-icon">◧</span> Reports</a>
-    <a href="admin.html" class="nav-item active"><span class="nav-icon">◩</span> Administration</a>
-  </nav>
+      <a href="index.html" class="nav-item" id="nav-dashboard">
+        <span class="nav-icon">◈</span> Overview
+      </a>
+      <div class="nav-section-label" style="margin-top:18px">A · SCADA / PLC File Analysis</div>
+      <a href="upload.html" class="nav-item" id="nav-upload">
+        <span class="nav-icon">⇪</span> Upload &amp; Map Tags
+      </a>
+      <a href="ai_analysis.html" class="nav-item" id="nav-ai">
+        <span class="nav-icon">🔬</span> Root-Cause Investigation
+      </a>
+      <div class="nav-section-label" style="margin-top:18px">B · Live IoT Monitoring</div>
+      <a href="live.html" class="nav-item" id="nav-live">
+        <span class="nav-icon">📡</span> Live Monitor
+      </a>
+      <a href="analytics.html" class="nav-item" id="nav-analytics">
+        <span class="nav-icon">◉</span> Health Trends
+      </a>
+      <div class="nav-section-label" style="margin-top:18px">Operations &amp; Admin</div>
+      <a href="maintenance.html" class="nav-item" id="nav-maintenance">
+        <span class="nav-icon">◫</span> Maintenance
+      </a>
+      <a href="notifications.html" class="nav-item" id="nav-notifications">
+        <span class="nav-icon">🔔</span> Telegram &amp; SMS
+      </a>
+      <a href="reports.html" class="nav-item" id="nav-reports">
+        <span class="nav-icon">◧</span> Reports
+      </a>
+      <a href="admin.html" class="nav-item active" id="nav-admin">
+        <span class="nav-icon">◩</span> Administration
+      </a>
+    </nav>
 
   <div class="sidebar-machine">
     <div class="machine-label">Active Machine</div>
-    <div class="machine-id">MOTOR_01</div>
+    <div class="machine-id" data-selected-device>MOTOR_01</div>
     <div class="machine-type">3φ Induction Motor + Pump</div>
     <div class="machine-status"><span class="status-dot online"></span><span>Running</span></div>
   </div>

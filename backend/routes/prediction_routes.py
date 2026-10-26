@@ -112,7 +112,8 @@ def maintenance_schedule(device_id):
         .first()
     )
 
-    run_hours = latest.run_hours if latest else 0
+    # Devices without an hour meter send no run_hours
+    run_hours = (latest.run_hours if latest else 0) or 0
     result = predict_fault(latest.to_dict() if latest else {"device_id": device_id})
     rul_days = result.get("rul_days", 365)
     urgency = result.get("maintenance_urgency", "SCHEDULED")

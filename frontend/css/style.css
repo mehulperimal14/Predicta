@@ -619,3 +619,8 @@ body {
 }
 .btn-dl:hover { background: var(--accent); color: #000; }
 
+
+/* Primary action button – shared by all pages (was only defined inside upload.html) */
+.btn-action { background: linear-gradient(135deg, #00d4ff, #0077b6); border: none; border-radius: 8px; color: #fff; padding: 12px 24px; font-size: 13px; font-weight: 700; cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.btn-action:hover { transform: translateY(-1px); box-shadow: 0 4px 18px var(--accent-glow); }
+.btn-action:disabled, .btn-dl:disabled { opacity: 0.5; cursor: not-allowed; }

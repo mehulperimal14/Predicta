@@ -20,11 +20,13 @@ from ingestion import (
     read_industrial_file, detect_timestamp_column, suggest_tag_mappings,
     analyze_data_quality, generate_dataset_preview, STANDARD_VARIABLES, get_excel_sheets
 )
-from analytics_engine import compute_time_series_features
+from analytics_engine import compute_time_series_features, compute_changepoints, TREND_VARIABLES
 from ai_engine import (
     evaluate_layer1_rules, run_layer2_unsupervised_detection,
-    run_layer3_supervised_prediction, evaluate_layer4_rul, compute_layer5_risk_score
+    run_layer3_supervised_prediction, evaluate_layer4_rul, compute_layer5_risk_score,
+    merged_limits, has_run_to_failure_history, alarm_rate_pct
 )
+from trend_forecast import forecast_time_to_limits, trend_risk_score
 from investigation import generate_fault_hypotheses
 from notifications import dispatch_machine_alert
 
@@ -73,7 +75,10 @@ def upload_file():
         
         # Analyze Data Quality
         quality_res = analyze_data_quality(df, timestamp_col=ts_col)
-        
+        # Remembered so the analysis reads the same sheet (stored in the JSON report
+        # rather than a new column, which would need a migration on existing databases).
+        quality_res["sheet_name"] = selected_sheet
+
         # Generate Preview
         preview_res = generate_dataset_preview(df, max_rows=15)
         
@@ -229,8 +234,9 @@ def run_dataset_analysis(dataset_id):
         return jsonify({"error": "Dataset file missing from server storage"}), 404
         
     try:
-        df = read_industrial_file(dataset.file_path)
-        
+        quality_report = json.loads(dataset.quality_report_json) if dataset.quality_report_json else {}
+        df = read_industrial_file(dataset.file_path, sheet_name=quality_report.get("sheet_name"))
+
         # If no mapping passed, use auto-suggested
         if not mapping:
             mapping = suggest_tag_mappings(df)
@@ -242,36 +248,84 @@ def run_dataset_analysis(dataset_id):
             if len(df) == 0:
                 return jsonify({"error": f"No records found for asset_id '{asset_id}'"}), 404
 
+        ts_col = mapping.get("timestamp")
+        limits = merged_limits(custom_limits)
+        label_col = "_std_failure_label" if mapping.get("failure_label") else None
+
         # 1. Feature Engineering & Time-Series Analytics
         features_df = compute_time_series_features(df, mapping=mapping, rolling_window=15)
-        
+
+        # 1b. CUSUM change-points: when did behaviour shift?
+        changepoints = compute_changepoints(features_df, timestamp_col=ts_col)
+
         # 2. Layer 1: Engineering Rules
         l1_res = evaluate_layer1_rules(features_df, custom_limits=custom_limits)
-        
+
         # 3. Layer 2: Unsupervised Anomaly Detection (Isolation Forest)
-        l2_res = run_layer2_unsupervised_detection(features_df)
-        
+        l2_res = run_layer2_unsupervised_detection(
+            features_df, contamination=current_app.config.get("ISOLATION_FOREST_CONTAMINATION", 0.03))
+
         # 4. Layer 3: Supervised Failure Prediction (if labels exist)
-        l3_res = run_layer3_supervised_prediction(features_df, label_col=mapping.get("failure_label"))
-        
-        # 5. Layer 4: Remaining Useful Life
-        l4_res = evaluate_layer4_rul(features_df, has_run_to_failure=False)
-        
+        l3_res = run_layer3_supervised_prediction(features_df, label_col=label_col)
+
+        # 5. Layer 4: Trend forecast to engineering limits + RUL when run-to-failure history exists
+        forecast = forecast_time_to_limits(features_df, limits, timestamp_col=ts_col)
+        l4_res = evaluate_layer4_rul(
+            features_df,
+            has_run_to_failure=has_run_to_failure_history(features_df, label_col),
+            trend_forecast=forecast,
+            timestamp_col=ts_col,
+        )
+
         # 6. Layer 5: Composite Health Risk Classifier
-        risk_res = compute_layer5_risk_score(l1_res, l2_res, l3_res, data_quality_score=dataset.quality_score)
-        
-        # 7. Explainable Fault Investigation Hypotheses
-        hypotheses = generate_fault_hypotheses(features_df, mapping, l1_res, l2_res, risk_res)
+        risk_res = compute_layer5_risk_score(
+            l1_res, l2_res, l3_res,
+            data_quality_score=dataset.quality_score,
+            trend_score=trend_risk_score(forecast),
+            alarm_rate=alarm_rate_pct(features_df, mapping.get("fault_code")),
+        )
+
+        # 7. Explainable Fault Investigation Hypotheses (all 9 signatures)
+        hypotheses = generate_fault_hypotheses(features_df, mapping, l1_res, l2_res, risk_res, changepoints=changepoints)
 
         # Build analysis summary
+        if l3_res.get("available"):
+            pr_auc = l3_res["metrics"].get("pr_auc")
+            supervised_line = f"Trained on past, tested on future (PR-AUC {pr_auc})" if pr_auc is not None else \
+                "Trained on past, tested on future (PR-AUC undefined: single class in test period)"
+        else:
+            supervised_line = "Unsupervised mode (no validated failure labels)"
+
+        if l4_res.get("available"):
+            rul_line = (f"{l4_res['rul_hours']} h until the level at which past failures began "
+                        f"(driven by {l4_res['driving_variable']})")
+        else:
+            rul_line = l4_res.get("message", "Unavailable")
+
+        earliest = forecast.get("earliest_critical")
+        if earliest:
+            trend_line = (f"{earliest['variable']} reaches its critical limit ({earliest['limit']} {earliest['unit']}) "
+                          f"in ~{earliest['hours']} h if the current trend continues")
+        elif forecast.get("available"):
+            trend_line = "No variable is trending toward a critical limit within the forecast horizon"
+        else:
+            trend_line = forecast.get("reason", "Unavailable")
+
+        shifted = [f"{var} ({cp['first_timestamp'] or 'row ' + str(cp['first_row'])})"
+                   for var, cp in changepoints.items() if cp.get("count")]
+        applicable = [h["hypothesis"] for h in hypotheses if h.get("applicable")]
+
         summary_md = (
             f"### Analysis Run Summary for {asset_id}\n\n"
             f"- **Overall Risk Category:** {risk_res['risk_category']} (Score: {risk_res['risk_score']}/100)\n"
-            f"- **Total Rows Analyzed:** {len(features_df):,} records\n"
+            f"- **Total Rows Analyzed:** {len(features_df):,} records ({l1_res.get('samples_evaluated', 0):,} while running)\n"
             f"- **Rule Violations Detected:** {l1_res['critical_violations']} Critical, {l1_res['warning_violations']} Warning\n"
-            f"- **Unsupervised Anomalies:** {l2_res.get('anomaly_count', 0)} ({l2_res.get('anomaly_rate_pct', 0.0)}% of data)\n"
-            f"- **Supervised Failure Model:** {'Trained (PR-AUC evaluated)' if l3_res.get('available') else 'Unsupervised mode (no validated failure labels)'}\n"
-            f"- **Remaining Useful Life:** {l4_res.get('message', 'Unavailable')}\n\n"
+            f"- **Unsupervised Anomalies:** {l2_res.get('anomaly_count', 0)} ({l2_res.get('anomaly_rate_pct', 0.0)}% of running data)\n"
+            f"- **Behaviour Change-Points (CUSUM):** {', '.join(shifted) if shifted else 'None detected'}\n"
+            f"- **Supervised Failure Model:** {supervised_line}\n"
+            f"- **Trend Forecast:** {trend_line}\n"
+            f"- **Remaining Useful Life:** {rul_line}\n"
+            f"- **Fault Signatures Evaluated:** {len(hypotheses)} ({len(applicable)} supported by the data)\n\n"
             f"**Recommended Human Action:** {risk_res['recommended_action']}"
         )
 
@@ -293,7 +347,8 @@ def run_dataset_analysis(dataset_id):
                 "layer2_unsupervised": l2_res,
                 "layer3_supervised": l3_res,
                 "layer4_rul": l4_res,
-                "layer5_risk": risk_res
+                "layer5_risk": risk_res,
+                "changepoints": changepoints
             }),
             hypotheses_json=json.dumps(hypotheses),
             summary_markdown=summary_md
@@ -317,13 +372,13 @@ def run_dataset_analysis(dataset_id):
         # Extract downsampled trend chart series (max 200 data points for UI)
         chart_step = max(1, len(features_df) // 200)
         sampled = features_df.iloc[::chart_step]
-        ts_vals = sampled[mapping.get("timestamp")].astype(str).tolist() if mapping.get("timestamp") in sampled.columns else list(range(len(sampled)))
-        
+        ts_vals = sampled[ts_col].astype(str).tolist() if ts_col in sampled.columns else list(range(len(sampled)))
+
         charts_data = {
             "timestamps": ts_vals,
             "variables": {}
         }
-        for k in ["motor_temp", "bearing_temp", "current", "voltage", "vibration_rms", "pressure", "flow_rate", "rpm"]:
+        for k in TREND_VARIABLES:
             std_k = f"_std_{k}"
             if std_k in sampled.columns:
                 charts_data["variables"][k] = [
@@ -352,6 +407,8 @@ def run_dataset_analysis(dataset_id):
             "layer2_unsupervised": l2_res,
             "layer3_supervised": l3_res,
             "layer4_rul": l4_res,
+            "trend_forecast": forecast,
+            "changepoints": changepoints,
             "hypotheses": hypotheses,
             "summary_markdown": summary_md,
             "charts": charts_data,
@@ -361,6 +418,24 @@ def run_dataset_analysis(dataset_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
+
+
+@ingestion_bp.route("/analyses", methods=["GET"])
+@jwt_required()
+def list_analysis_runs():
+    """GET /api/ingest/analyses?limit=10 – Recent Segment A analysis runs (summary only)."""
+    limit = max(1, min(request.args.get("limit", 10, type=int), 100))
+    runs = AnalysisRun.query.order_by(AnalysisRun.created_at.desc()).limit(limit).all()
+    return jsonify([{
+        "id": r.id,
+        "dataset_id": r.dataset_id,
+        "filename": r.dataset.filename if r.dataset else None,
+        "asset_id": r.asset_id,
+        "risk_category": r.overall_risk_category,
+        "risk_score": r.overall_risk_score,
+        "rows_analyzed": r.rows_analyzed,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    } for r in runs]), 200
 
 
 @ingestion_bp.route("/analysis/<int:analysis_id>", methods=["GET"])

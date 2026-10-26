@@ -41,6 +41,7 @@ def create_app(config_class=Config):
     from routes.report_routes       import report_bp
     from routes.ingestion_routes    import ingestion_bp
     from routes.notification_routes import notification_bp
+    from routes.live_routes         import live_bp
 
     app.register_blueprint(auth_bp,         url_prefix="/api/auth")
     app.register_blueprint(sensor_bp,       url_prefix="/api/sensor")
@@ -50,6 +51,7 @@ def create_app(config_class=Config):
     app.register_blueprint(report_bp,       url_prefix="/api/reports")
     app.register_blueprint(ingestion_bp,    url_prefix="/api/ingest")
     app.register_blueprint(notification_bp, url_prefix="/api/notifications")
+    app.register_blueprint(live_bp,         url_prefix="/api/live")
 
     # Health-check route
     @app.route("/api/health")
@@ -77,43 +79,61 @@ def create_app(config_class=Config):
         db.create_all()
         _seed_default_data(app)
 
+    # Segment B: optional MQTT bridge (HTTPS ingest works without it)
+    if app.config.get("MQTT_ENABLED") and not app.config.get("TESTING"):
+        from mqtt_client import start_mqtt_subscriber
+        start_mqtt_subscriber(app, socketio)
+
     return app
 
 
 
+# Demo passwords: only ever used when FLASK_ENV != production and no env password is set.
+DEMO_PASSWORDS = {
+    "admin":    "Predicta@2024",
+    "engineer": "Engineer@2024",
+    "operator": "Operator@2024",
+}
+
+
 def _seed_default_data(app):
-    """Create default admin user and machine if not exist."""
+    """Create default users and machine if not exist; rotate demo passwords in production."""
     from models import User, Machine
-    from werkzeug.security import generate_password_hash
+    import secrets
+    from werkzeug.security import generate_password_hash, check_password_hash
 
-    if not User.query.filter_by(username="admin").first():
-        db.session.add(User(
-            username="admin",
-            email="admin@predicta.local",
-            password_hash=generate_password_hash("Predicta@2024"),
-            role="admin",
-            is_active=True
-        ))
+    from sqlalchemy.exc import IntegrityError
 
-    if not User.query.filter_by(username="engineer").first():
-        db.session.add(User(
-            username="engineer",
-            email="engineer@predicta.local",
-            password_hash=generate_password_hash("Engineer@2024"),
-            role="engineer",
-            is_active=True
-        ))
+    is_production = app.config.get("IS_PRODUCTION", False)
+    env_passwords = app.config.get("SEED_PASSWORDS", {})
+    generated = {}
 
-    if not User.query.filter_by(username="operator").first():
-        db.session.add(User(
-            username="operator",
-            email="operator@predicta.local",
-            password_hash=generate_password_hash("Operator@2024"),
-            role="operator",
-            is_active=True
-        ))
+    for role, demo_password in DEMO_PASSWORDS.items():
+        env_password = env_passwords.get(role, "")
+        user = User.query.filter_by(username=role).first()
 
-    from models import Machine
+        if not user:
+            if env_password:
+                password = env_password
+            elif is_production:
+                password = generated[role] = secrets.token_urlsafe(12)
+            else:
+                password = demo_password
+            db.session.add(User(
+                username=role,
+                email=f"{role}@predicta.local",
+                password_hash=generate_password_hash(password),
+                role=role,
+                is_active=True
+            ))
+        elif env_password and check_password_hash(user.password_hash, demo_password):
+            # Existing deployment still on the published demo password: rotate it.
+            user.password_hash = generate_password_hash(env_password)
+            print(f"[INIT] Rotated the published demo password for '{role}' to PREDICTA_{role.upper()}_PASSWORD")
+        elif is_production and check_password_hash(user.password_hash, demo_password):
+            print(f"[SECURITY] '{role}' still uses the published demo password. "
+                  f"Set PREDICTA_{role.upper()}_PASSWORD and redeploy to rotate it.")
+
     if not Machine.query.filter_by(device_id="MOTOR_01").first():
         db.session.add(Machine(
             device_id="MOTOR_01",
@@ -126,8 +146,18 @@ def _seed_default_data(app):
             rated_rpm=1440,
         ))
 
-    db.session.commit()
-    print("[INIT] Database seeded: admin/Predicta@2024 | engineer/Engineer@2024 | operator/Operator@2024")
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Another gunicorn worker seeded the same rows first.
+        db.session.rollback()
+        return
+
+    for role, password in generated.items():
+        print(f"[INIT] Generated initial password for '{role}': {password}  "
+              f"(set PREDICTA_{role.upper()}_PASSWORD to choose your own)")
+    if not is_production:
+        print("[INIT] Development mode: demo logins admin/Predicta@2024 | engineer/Engineer@2024 | operator/Operator@2024")
 
 
 app = create_app()
@@ -136,9 +166,9 @@ app = create_app()
 if __name__ == "__main__":
     print("=" * 60)
     print("  PREDICTA Industrial Monitoring Backend")
-    print("  API:       http://localhost:5000/api")
-    print("  Dashboard: open frontend/index.html in browser")
-    print("  Login:     admin / Predicta@2024")
+    print("  Dashboard: http://localhost:5000/login.html")
+    print("  Segment A: http://localhost:5000/upload.html  (SCADA/PLC file analysis)")
+    print("  Segment B: http://localhost:5000/live.html    (live IoT monitoring)")
     print("=" * 60)
 
     socketio.run(app, host="0.0.0.0", port=5000, debug=False, use_reloader=False, allow_unsafe_werkzeug=True)

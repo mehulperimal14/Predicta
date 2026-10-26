@@ -4,16 +4,53 @@ Loads from environment variables with sensible industrial defaults.
 """
 
 import os
+import secrets
 from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
 
+INSTANCE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance")
+IS_PRODUCTION = os.getenv("FLASK_ENV", "").lower() == "production"
+
+
+def _load_or_create_secret(env_name: str) -> str:
+    """
+    Return a secret from the environment, or a random one persisted in backend/instance/.
+    Never falls back to a hard-coded string: published defaults let anyone forge JWTs.
+    The file is created atomically so several gunicorn workers end up with the same key.
+    """
+    value = os.getenv(env_name, "").strip()
+    if value:
+        return value
+
+    os.makedirs(INSTANCE_DIR, exist_ok=True)
+    path = os.path.join(INSTANCE_DIR, f".{env_name.lower()}")
+    if not os.path.exists(path):
+        tmp_path = f"{path}.{os.getpid()}.tmp"
+        with open(tmp_path, "w") as f:
+            f.write(secrets.token_hex(32))
+        try:
+            os.link(tmp_path, path)          # atomic: fails if another worker won the race
+        except FileExistsError:
+            pass
+        except OSError:
+            if not os.path.exists(path):     # filesystem without hard links
+                os.replace(tmp_path, path)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        print(f"[CONFIG] {env_name} not set - generated a random key in {path}. "
+              f"Set {env_name} in the environment for production deployments.")
+    with open(path) as f:
+        return f.read().strip()
+
 
 class Config:
     # ─── Flask ────────────────────────────────────────────────────────────────
-    SECRET_KEY = os.getenv("SECRET_KEY", "predicta-super-secret-key-change-in-production")
+    SECRET_KEY = _load_or_create_secret("SECRET_KEY")
     DEBUG = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    IS_PRODUCTION = IS_PRODUCTION
 
     # ─── Database ─────────────────────────────────────────────────────────────
     SQLALCHEMY_DATABASE_URI = os.getenv(
@@ -23,7 +60,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ─── JWT ──────────────────────────────────────────────────────────────────
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "predicta-jwt-secret-key")
+    # Falls back to SECRET_KEY (itself random or from env) – never to a literal.
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "").strip() or SECRET_KEY
     JWT_ACCESS_TOKEN_EXPIRES  = timedelta(hours=8)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 
@@ -36,6 +74,23 @@ class Config:
     MQTT_TOPIC_ALERTS   = "predicta/alerts"
     MQTT_TOPIC_COMMANDS = "predicta/commands"
     MQTT_KEEPALIVE      = 60
+    # Segment B transport: HTTPS POST /api/live/ingest is the default for cloud hosting.
+    # Enable the MQTT bridge only when a broker is reachable from the backend.
+    MQTT_ENABLED        = os.getenv("MQTT_ENABLED", "False").lower() == "true"
+
+    # ─── Segment B: Live IoT Monitoring ───────────────────────────────────────
+    LIVE_ASSESSMENT_EVERY_N_READINGS = int(os.getenv("LIVE_ASSESSMENT_EVERY_N_READINGS", 10))
+    LIVE_ASSESSMENT_WINDOW_READINGS  = int(os.getenv("LIVE_ASSESSMENT_WINDOW_READINGS", 720))
+    LIVE_OFFLINE_AFTER_SECONDS       = int(os.getenv("LIVE_OFFLINE_AFTER_SECONDS", 60))
+
+    # ─── Default user passwords (seeded on first start) ───────────────────────
+    # Production: unset → random password printed once to the server log.
+    # Development: unset → documented demo passwords.
+    SEED_PASSWORDS = {
+        "admin":    os.getenv("PREDICTA_ADMIN_PASSWORD", ""),
+        "engineer": os.getenv("PREDICTA_ENGINEER_PASSWORD", ""),
+        "operator": os.getenv("PREDICTA_OPERATOR_PASSWORD", ""),
+    }
 
     # ─── Alert Configuration ──────────────────────────────────────────────────
     # Email (Gmail SMTP or SendGrid)
@@ -88,6 +143,7 @@ class Config:
     ML_SCALER_PATH      = os.getenv("ML_SCALER_PATH", "ml_model/saved_models/scaler.pkl")
     ML_CONFIDENCE_MIN   = 0.65      # Minimum confidence to trigger alert
     ML_PREDICTION_WINDOW = 10       # Number of readings to average before prediction
+    ISOLATION_FOREST_CONTAMINATION = float(os.getenv("ISOLATION_FOREST_CONTAMINATION", 0.03))
 
     # ─── Data Retention ───────────────────────────────────────────────────────
     DATA_RETENTION_DAYS = 365       # Keep 1 year of sensor data

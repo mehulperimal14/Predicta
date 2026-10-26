@@ -75,6 +75,17 @@ def generate_motor_dataset(
             cum_energy += power_kw * (interval_seconds / 3600.0)
             is_failure = 0
 
+            # ── Earlier failure episode (30–40% of the record), repaired at 40% ─
+            # Gives the supervised layer and the RUL layer a labelled run-to-failure history.
+            if inject_fault and int(num_samples * 0.30) <= i < int(num_samples * 0.40):
+                progress = (i - int(num_samples * 0.30)) / (num_samples * 0.10)
+                motor_temp += 30.0 * progress
+                bearing_temp += 15.0 * progress
+                current += 1.6 * progress
+                vibration += 0.35 * progress
+                if progress > 0.6:
+                    is_failure = 1
+
             # ── Fault Injection: Thermal Runaway in final 12 hours ─────────────
             if inject_fault and i >= int(num_samples * 0.75):
                 progress = (i - int(num_samples * 0.75)) / (num_samples * 0.25)
@@ -125,7 +136,7 @@ def generate_pump_dataset(
         t_sec = i * interval_seconds
         
         running = 1
-        current = 4.1 + 0.3 * math.sin(0.002 * t_sec) + random.gauss(0, 0.05)
+        current = 3.3 + 0.2 * math.sin(0.002 * t_sec) + random.gauss(0, 0.05)
         rpm = 1450 + int(random.gauss(0, 4))
         pressure = 280.0 + 15.0 * math.sin(0.004 * t_sec) + random.gauss(0, 3.0)
         flow_rate = 45.0 + 4.0 * math.sin(0.004 * t_sec) + random.gauss(0, 0.8)
@@ -178,14 +189,28 @@ def generate_gearbox_dataset(
         bearing_temp = 48.0 + random.gauss(0, 0.3)
         motor_temp = 54.0 + random.gauss(0, 0.4)
         current = 3.6 + random.gauss(0, 0.06)
+        torque = 9.9 + random.gauss(0, 0.12)  # N·m at 1.5 kW / 1440 RPM
         is_failure = 0
-        
+
+        # ── Earlier lubrication failure (25–35% of the record), re-greased at 35% ─
+        if inject_fault and int(num_samples * 0.25) <= i < int(num_samples * 0.35):
+            progress = (i - int(num_samples * 0.25)) / (num_samples * 0.10)
+            bearing_temp += 24.0 * progress
+            vibration += 0.6 * max(0.0, (progress - 0.15) / 0.85)
+            current += 0.6 * progress
+            torque += 1.8 * progress
+            if progress > 0.6:
+                is_failure = 1
+
         # ── Fault: Lubrication breakdown in last 14 hours ─────────────────────
+        # Friction heat appears first; gear-mesh vibration follows as surfaces wear.
         if inject_fault and i >= int(num_samples * 0.70):
             progress = (i - int(num_samples * 0.70)) / (num_samples * 0.30)
-            vibration += 0.85 * progress  # High gear mesh vibration
             bearing_temp += 28.0 * progress  # Sump and bearing friction heat
+            vib_progress = max(0.0, (progress - 0.15) / 0.85)
+            vibration += 0.85 * vib_progress  # High gear mesh vibration
             current += 0.8 * progress  # Drag increases current
+            torque += 2.2 * progress   # Higher drive effort
             if progress > 0.55:
                 is_failure = 1
 
@@ -197,6 +222,7 @@ def generate_gearbox_dataset(
             "motor_temp": round(motor_temp, 1),
             "bearing_temp": round(bearing_temp, 1),
             "vibration_rms": round(vibration, 3),
+            "torque_nm": round(torque, 2),
             "rpm": 1440,
             "failure_label": is_failure
         })
@@ -221,7 +247,8 @@ def generate_compressor_dataset(
         
         pressure = 480.0 + 20.0 * math.sin(0.003 * t_sec) + random.gauss(0, 4.0)
         discharge_temp = 68.0 + random.gauss(0, 0.5)
-        current = 5.2 + random.gauss(0, 0.08)
+        motor_temp = 61.0 + random.gauss(0, 0.4)
+        current = 3.4 + random.gauss(0, 0.06)
         flow_rate = 85.0 + random.gauss(0, 1.2)
         is_failure = 0
         
@@ -240,7 +267,8 @@ def generate_compressor_dataset(
             "asset_id": asset_id,
             "motor_running": 1,
             "current": round(current, 2),
-            "motor_temp": round(discharge_temp, 1),  # Discharge air temp mapped to motor_temp
+            "motor_temp": round(motor_temp, 1),
+            "discharge_temp": round(discharge_temp, 1),
             "pressure": round(pressure, 1),
             "flow_rate": round(flow_rate, 1),
             "vibration_rms": round(0.20 + 0.15 * (i >= int(num_samples * 0.75)), 3),
@@ -266,7 +294,19 @@ def pregenerate_all_sample_files():
         if filename.endswith(".csv"):
             df.to_csv(filepath, index=False)
         elif filename.endswith(".xlsx"):
-            df.to_excel(filepath, index=False)
+            # Two sheets, like a real historian workbook: telemetry first (analysed by default),
+            # then asset metadata carrying the synthetic-data disclaimer.
+            asset_info = pd.DataFrame([
+                {"field": "asset_id", "value": "COMP-AIR-401"},
+                {"field": "asset_type", "value": "Two-stage reciprocating air compressor"},
+                {"field": "rated_pressure_kpa", "value": 550},
+                {"field": "discharge_temp_trip_c", "value": 105},
+                {"field": "data_origin", "value": "SYNTHETIC SIMULATION – not real plant telemetry"},
+                {"field": "injected_fault", "value": "Valve leakage from 75% of the record onward"},
+            ])
+            with pd.ExcelWriter(filepath) as writer:
+                df.to_excel(writer, sheet_name="Telemetry", index=False)
+                asset_info.to_excel(writer, sheet_name="Asset_Info", index=False)
             
     print(f"[SYNTHETIC] 4 demonstration industrial datasets created in {SAMPLE_DATA_DIR}")
 

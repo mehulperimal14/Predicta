@@ -51,21 +51,41 @@
     <div class="logo-text"><span class="logo-name">PREDICTA 2.0</span><span class="logo-tag">Industrial AI</span></div>
   </div>
   <nav class="sidebar-nav">
-    <div class="nav-section-label">Operations</div>
-    <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Overview</a>
-    <a href="upload.html" class="nav-item"><span class="nav-icon">⇪</span> Upload & Ingest</a>
-    <a href="analytics.html" class="nav-item"><span class="nav-icon">◉</span> Asset Health</a>
-    <a href="ai_analysis.html" class="nav-item"><span class="nav-icon">🔬</span> AI Investigation</a>
-    <a href="maintenance.html" class="nav-item"><span class="nav-icon">◫</span> Maintenance</a>
-    <div class="nav-section-label" style="margin-top:20px">Integration & Admin</div>
-    <a href="notifications.html" class="nav-item"><span class="nav-icon">🔔</span> Telegram & SMS</a>
-    <a href="reports.html" class="nav-item active"><span class="nav-icon">◧</span> Reports</a>
-    <a href="admin.html" class="nav-item"><span class="nav-icon">◩</span> Administration</a>
-  </nav>
+      <a href="index.html" class="nav-item" id="nav-dashboard">
+        <span class="nav-icon">◈</span> Overview
+      </a>
+      <div class="nav-section-label" style="margin-top:18px">A · SCADA / PLC File Analysis</div>
+      <a href="upload.html" class="nav-item" id="nav-upload">
+        <span class="nav-icon">⇪</span> Upload &amp; Map Tags
+      </a>
+      <a href="ai_analysis.html" class="nav-item" id="nav-ai">
+        <span class="nav-icon">🔬</span> Root-Cause Investigation
+      </a>
+      <div class="nav-section-label" style="margin-top:18px">B · Live IoT Monitoring</div>
+      <a href="live.html" class="nav-item" id="nav-live">
+        <span class="nav-icon">📡</span> Live Monitor
+      </a>
+      <a href="analytics.html" class="nav-item" id="nav-analytics">
+        <span class="nav-icon">◉</span> Health Trends
+      </a>
+      <div class="nav-section-label" style="margin-top:18px">Operations &amp; Admin</div>
+      <a href="maintenance.html" class="nav-item" id="nav-maintenance">
+        <span class="nav-icon">◫</span> Maintenance
+      </a>
+      <a href="notifications.html" class="nav-item" id="nav-notifications">
+        <span class="nav-icon">🔔</span> Telegram &amp; SMS
+      </a>
+      <a href="reports.html" class="nav-item active" id="nav-reports">
+        <span class="nav-icon">◧</span> Reports
+      </a>
+      <a href="admin.html" class="nav-item" id="nav-admin">
+        <span class="nav-icon">◩</span> Administration
+      </a>
+    </nav>
 
   <div class="sidebar-machine">
     <div class="machine-label">Active Machine</div>
-    <div class="machine-id">MOTOR_01</div>
+    <div class="machine-id" data-selected-device>MOTOR_01</div>
     <div class="machine-type">3φ Induction Motor + Pump</div>
     <div class="machine-status"><span class="status-dot online"></span><span>Running</span></div>
   </div>
@@ -96,7 +116,7 @@
       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         <div>
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">MACHINE</label>
-          <select class="form-select" id="rep-device"><option value="MOTOR_01">MOTOR_01 – Cooling Tower Pump</option></select>
+          <select class="form-select" id="rep-device" onchange="changeDevice(this.value)"><option value="MOTOR_01">MOTOR_01</option></select>
         </div>
         <div>
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">PERIOD</label>
@@ -121,7 +141,17 @@
     </div>
     <div class="gen-actions">
       <button class="btn-gen" id="btn-generate" onclick="generateReport()">⬇ Download PDF</button>
+      <button class="btn-gen" style="background:linear-gradient(135deg,rgba(0,212,255,0.35),rgba(0,120,160,0.35));border:1px solid rgba(0,212,255,0.4)" onclick="downloadTelemetryCsv()">⬇ Telemetry CSV</button>
       <button class="btn-gen" style="background:linear-gradient(135deg,rgba(168,85,247,0.4),rgba(109,40,217,0.4));border:1px solid rgba(168,85,247,0.4)" onclick="previewReport()">👁 Preview Data</button>
+    </div>
+  </div>
+
+  <!-- Segment A: analysis run exports -->
+  <div class="report-gen-card" style="margin-top:20px">
+    <div style="flex:1">
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px">📑 SCADA / PLC File Analysis Export (Segment A)</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Risk inputs, rule violations, trend forecast, change-points and all nine fault hypotheses with inspection actions, as CSV.</div>
+      <div id="analysis-export-list" style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text-muted)">Loading analyses…</div>
     </div>
   </div>
 
@@ -191,13 +221,48 @@
 <div class="toast-container" id="toast-container"></div>
 <script src="js/api.js"></script>
 <script>
-const DEVICE = "MOTOR_01";
+let DEVICE = API.getSelectedDevice();
 window.addEventListener("DOMContentLoaded", () => {
   if (!API.getToken()) { window.location.href = "login.html"; return; }
   const u = API.getUser(); if (u) document.getElementById("user-name").textContent = u.username;
   setInterval(() => { document.getElementById("topbar-clock").textContent = new Date().toLocaleTimeString("en-IN",{hour12:false}); }, 1000);
+  loadDevices(); loadAnalysisExports();
   loadFaultHistory(); loadAlertHistory(); loadStats();
 });
+
+async function loadDevices() {
+  const fleet = await API.getFleet();
+  if (!Array.isArray(fleet) || !fleet.length) return;
+  const sel = document.getElementById("rep-device");
+  sel.innerHTML = fleet.map(d => `<option value="${API.esc(d.device_id)}">${API.esc(d.device_id)} – ${API.esc(d.name)}</option>`).join("");
+  if (fleet.some(d => d.device_id === DEVICE)) sel.value = DEVICE; else changeDevice(fleet[0].device_id);
+}
+
+function changeDevice(deviceId) {
+  DEVICE = deviceId;
+  API.setSelectedDevice(deviceId);
+  document.querySelectorAll("[data-selected-device]").forEach(el => el.textContent = deviceId);
+  loadFaultHistory(); loadAlertHistory(); loadStats();
+}
+
+async function downloadTelemetryCsv() {
+  const res = await API.downloadTelemetryCSV(DEVICE, document.getElementById("rep-days").value);
+  if (res && res.error) showToast("error", "Export failed", res.error);
+}
+
+async function loadAnalysisExports() {
+  const runs = await API.getAnalyses(10);
+  const el = document.getElementById("analysis-export-list");
+  if (!Array.isArray(runs) || !runs.length) { el.textContent = "No analyses yet – upload a PLC / SCADA file first."; return; }
+  el.innerHTML = runs.map(r => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:8px">
+      <span><strong style="color:#fff">${API.esc(r.asset_id)}</strong> · ${API.esc(r.filename || "")} · ${API.esc(r.risk_category)} ${Math.round(r.risk_score || 0)}</span>
+      <span style="display:flex;gap:8px">
+        <a href="ai_analysis.html?analysis_id=${r.id}" style="color:var(--accent)">Open</a>
+        <a href="#" style="color:var(--accent)" onclick="API.downloadAnalysisCSV(${r.id});return false;">CSV</a>
+      </span>
+    </div>`).join("");
+}
 
 async function loadStats() {
   const faults = await API.getFaults(DEVICE);
@@ -258,12 +323,13 @@ async function generateReport() {
     await new Promise(r => setTimeout(r, 500));
   }
   const days = document.getElementById("rep-days").value;
-  API.downloadReport(DEVICE, days);
+  const res = await API.downloadReport(DEVICE, days);
+  btn.disabled = false; btn.textContent = "⬇ Download PDF";
+  setTimeout(() => { prog.style.display="none"; fill.style.width="0%"; }, 2000);
+  if (res && res.error) { showToast("error", "Report failed", res.error); return; }
   const count = parseInt(localStorage.getItem("reports_generated")||"0") + 1;
   localStorage.setItem("reports_generated", count);
   document.getElementById("stat-reports").textContent = count;
-  btn.disabled = false; btn.textContent = "⬇ Download PDF";
-  setTimeout(() => { prog.style.display="none"; fill.style.width="0%"; }, 2000);
   showToast("success","Report Downloaded","PDF report saved to your downloads folder.");
 }
 

@@ -131,3 +131,35 @@ def test_notification_config_and_mock_test(client):
     assert hist_res.status_code == 200
     logs = hist_res.get_json()
     assert len(logs) > 0
+
+
+@pytest.mark.parametrize("sample", [
+    "motor_cooling_failure.csv", "pump_cavitation_anomaly.csv",
+    "gearbox_vibration_wear.csv", "compressor_valve_degradation.xlsx",
+])
+def test_every_sample_dataset_analyses(client, sample):
+    login_res = client.post("/api/auth/login", json={"username": "admin", "password": "Predicta@2024"})
+    headers = {"Authorization": f"Bearer {login_res.get_json()['access_token']}"}
+    path = os.path.join(os.path.dirname(__file__), "..", "backend", "sample_data", sample)
+    with open(path, "rb") as f:
+        up = client.post("/api/ingest/upload", data={"file": (io.BytesIO(f.read()), sample)},
+                         content_type="multipart/form-data", headers=headers)
+    assert up.status_code == 201, up.get_json()
+    if sample.endswith(".xlsx"):
+        assert up.get_json()["excel_sheets"] == ["Telemetry", "Asset_Info"]
+
+    res = client.post(f"/api/ingest/analyze/{up.get_json()['dataset_id']}",
+                      json={"mapping": up.get_json()["suggested_mappings"]}, headers=headers)
+    assert res.status_code == 200, res.get_json()
+    body = res.get_json()
+    assert len(body["hypotheses"]) == 9
+    assert body["risk"]["risk_category"] in ("WATCH", "WARNING", "CRITICAL")
+    assert body["trend_forecast"]["available"] is True
+    assert "changepoints" in body
+    assert "Remaining Useful Life" in body["summary_markdown"]
+
+
+def test_jwt_secret_is_not_a_published_literal():
+    from config import Config
+    assert Config.JWT_SECRET_KEY not in ("predicta-jwt-secret-key", "")
+    assert len(Config.SECRET_KEY) >= 32

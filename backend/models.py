@@ -508,3 +508,29 @@ class AuditLog(db.Model):
             "ip_address": self.ip_address,
         }
 
+
+# ─── Segment B: Live IoT Device Credentials ───────────────────────────────────
+
+class DeviceCredential(db.Model):
+    """Per-device API key for streaming telemetry. Only the SHA-256 hash is stored."""
+    __tablename__ = "device_credentials"
+
+    id           = db.Column(db.Integer, primary_key=True)
+    device_id    = db.Column(db.String(50), db.ForeignKey("machines.device_id"), unique=True, nullable=False)
+    key_hash     = db.Column(db.String(64), nullable=False)
+    key_prefix   = db.Column(db.String(12), nullable=False)   # shown in the UI to identify the key
+    is_active    = db.Column(db.Boolean, default=True)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by   = db.Column(db.String(50), nullable=True)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self):
+        return {
+            "device_id": self.device_id,
+            "key_prefix": self.key_prefix,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_by": self.created_by,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+        }
+

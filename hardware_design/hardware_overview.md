@@ -20,7 +20,8 @@ Sensors on motor/panel:
 ├── DHT22           → Ambient Temp + Humidity
 └── MPX5700         → Pump Pressure (Analog)
 
-ESP32 DevKit → MQTT (WiFi) → Node-RED SCADA → Flask Backend → ML Engine → Dashboard
+ESP32 DevKit → HTTPS POST /api/live/ingest (X-Device-Key) → Predicta cloud → Live Monitor   [default]
+ESP32 DevKit → MQTT (WiFi) → Mosquitto → Predicta MQTT bridge (MQTT_ENABLED=true)            [on-premise option]
            ↕ RS485/Modbus RTU
 Delta DVP-ES2 PLC → Digital I/O → Contactor, Emergency Stop, Alarm Lamp
 ```

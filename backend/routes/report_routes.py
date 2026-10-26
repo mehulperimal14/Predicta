@@ -1,5 +1,5 @@
 """
-PREDICTA – PDF Report Generation Routes
+PREDICTA – Report Routes: PDF maintenance report and CSV exports for both segments
 """
 
 from flask import Blueprint, request, jsonify, send_file
@@ -157,3 +157,73 @@ def generate_report(device_id):
     filename = f"predicta_report_{device_id}_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=True, download_name=filename)
+
+
+# ─── CSV exports ──────────────────────────────────────────────────────────────
+
+def _csv_response(rows, header, filename):
+    import csv
+    from flask import Response
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(header)
+    writer.writerows(rows)
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@report_bp.route("/telemetry/<device_id>.csv", methods=["GET"])
+@jwt_required()
+def export_telemetry_csv(device_id):
+    """GET /api/reports/telemetry/<device_id>.csv?days=7 – Segment B raw telemetry export."""
+    from models import SensorReading
+    days = min(int(request.args.get("days", 7)), 365)
+    since = datetime.utcnow() - timedelta(days=days)
+    readings = (SensorReading.query.filter_by(device_id=device_id)
+                .filter(SensorReading.timestamp >= since)
+                .order_by(SensorReading.timestamp).limit(200000).all())
+    fields = ["timestamp", "voltage", "current", "power_kw", "motor_temp", "bearing_temp", "ambient_temp",
+              "humidity", "vibration_rms", "rpm", "pressure", "run_hours", "motor_running",
+              "overload", "overheat", "high_vibration", "health_score", "efficiency"]
+    rows = [[r.to_dict().get(f) for f in fields] for r in readings]
+    return _csv_response(rows, fields, f"predicta_telemetry_{device_id}_{days}d.csv")
+
+
+@report_bp.route("/analysis/<int:analysis_id>.csv", methods=["GET"])
+@jwt_required()
+def export_analysis_csv(analysis_id):
+    """GET /api/reports/analysis/<id>.csv – Segment A analysis run: risk, violations, forecast, hypotheses."""
+    from models import AnalysisRun
+    run = AnalysisRun.query.get_or_404(analysis_id)
+    d = run.to_dict()
+    layers = d.get("layer_results", {})
+    risk = layers.get("layer5_risk", {})
+    l4 = layers.get("layer4_rul", {})
+    forecast = l4.get("trend_forecast") or {}
+
+    rows = [
+        ["summary", "asset_id", d["asset_id"], ""],
+        ["summary", "rows_analyzed", d["rows_analyzed"], ""],
+        ["summary", "risk_category", d["overall_risk_category"], ""],
+        ["summary", "risk_score", d["overall_risk_score"], ""],
+        ["summary", "recommended_action", risk.get("recommended_action", ""), ""],
+        ["summary", "remaining_useful_life_hours", l4.get("rul_hours"), l4.get("message") or l4.get("method") or ""],
+    ]
+    for name, value in (risk.get("contributing_weights") or {}).items():
+        rows.append(["risk_inputs", name, value, ""])
+    for v in layers.get("layer1_rules", {}).get("violations", []):
+        rows.append(["rule_violation", v["variable"], v["level"], f"{v['rule']} ({v['percentage']}% of running samples)"])
+    for v in forecast.get("variables", []):
+        rows.append(["trend_forecast", v["variable"], v.get("status"),
+                     f"slope {v.get('slope_per_hour')}/h, to warning {v.get('hours_to_warning')} h, "
+                     f"to critical {v.get('hours_to_critical')} h"])
+    for var, cp in (layers.get("changepoints") or {}).items():
+        if cp.get("ongoing_shift"):
+            rows.append(["changepoint", var, "ongoing shift", cp.get("ongoing_shift_timestamp") or cp.get("ongoing_shift_row")])
+    for h in d.get("hypotheses", []):
+        rows.append(["hypothesis", h["hypothesis"], h["confidence"],
+                     " | ".join(h.get("supporting_evidence", [])) + " || Actions: " + " | ".join(h.get("recommended_actions", []))])
+    return _csv_response(rows, ["section", "item", "value", "detail"], f"predicta_analysis_{analysis_id}.csv")
