@@ -369,8 +369,13 @@ def cached_status(device_id: str) -> Optional[Dict[str, Any]]:
 def fleet_summary() -> List[Dict[str, Any]]:
     offline_after = current_app.config.get("LIVE_OFFLINE_AFTER_SECONDS", 60)
     creds = {c.device_id: c for c in DeviceCredential.query.all()}
+    # Segment B devices only: registered for streaming or with readings. Assets created by
+    # Segment A file analyses share the machine registry but are not live devices.
+    live_ids = set(creds) | {row[0] for row in db.session.query(SensorReading.device_id).distinct()}
     fleet = []
     for m in Machine.query.filter_by(is_active=True).order_by(Machine.device_id).all():
+        if m.device_id not in live_ids:
+            continue
         last = (SensorReading.query.filter_by(device_id=m.device_id)
                 .order_by(SensorReading.timestamp.desc()).first())
         age = (datetime.utcnow() - last.timestamp).total_seconds() if last else None

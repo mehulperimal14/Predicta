@@ -126,6 +126,17 @@ def test_rotate_key_invalidates_old_key(client):
     assert "device_key" not in entry
 
 
+def test_fleet_lists_only_live_devices(client):
+    from models import Machine
+    with client.application.app_context():
+        db.session.add(Machine(device_id="FILE-ASSET-9", name="Asset from an uploaded file"))  # as Segment A does
+        db.session.commit()
+    _register(client, "TEST_DEV_05")
+    ids = [d["device_id"] for d in client.get("/api/live/fleet", headers=_auth(client)).get_json()]
+    assert "TEST_DEV_05" in ids
+    assert "FILE-ASSET-9" not in ids
+
+
 def test_device_without_readings_reports_no_data(client):
     _register(client, "TEST_DEV_04")
     a = client.get("/api/live/devices/TEST_DEV_04/assessment", headers=_auth(client)).get_json()
