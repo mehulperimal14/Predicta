@@ -18,7 +18,7 @@ import math
 import random
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 SAMPLE_DATA_DIR = os.path.join(os.path.dirname(__file__), "sample_data")
 
@@ -31,7 +31,7 @@ def generate_motor_dataset(
 ) -> pd.DataFrame:
     """Simulates a 3-Phase Induction Motor with thermal breakdown and overcurrent."""
     num_samples = int((num_hours * 3600) / interval_seconds)
-    base_time = datetime.utcnow() - timedelta(hours=num_hours)
+    base_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=num_hours)
     
     rows = []
     cum_energy = 0.0
@@ -117,7 +117,7 @@ def generate_pump_dataset(
 ) -> pd.DataFrame:
     """Simulates a Centrifugal Water Pump with suction cavitation and pressure collapse."""
     num_samples = int((num_hours * 3600) / interval_seconds)
-    base_time = datetime.utcnow() - timedelta(hours=num_hours)
+    base_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=num_hours)
     
     rows = []
     for i in range(num_samples):
@@ -167,7 +167,7 @@ def generate_gearbox_dataset(
 ) -> pd.DataFrame:
     """Simulates a Conveyor Helical Gearbox with lubrication degradation & bearing wear."""
     num_samples = int((num_hours * 3600) / interval_seconds)
-    base_time = datetime.utcnow() - timedelta(hours=num_hours)
+    base_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=num_hours)
     
     rows = []
     for i in range(num_samples):
@@ -212,7 +212,7 @@ def generate_compressor_dataset(
 ) -> pd.DataFrame:
     """Simulates an Industrial Air Compressor with discharge overheating & valve leakage."""
     num_samples = int((num_hours * 3600) / interval_seconds)
-    base_time = datetime.utcnow() - timedelta(hours=num_hours)
+    base_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=num_hours)
     
     rows = []
     for i in range(num_samples):
