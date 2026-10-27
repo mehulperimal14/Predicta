@@ -219,12 +219,12 @@
         </button>
       </form>
 
-      <div class="demo-creds" id="open-access-box" style="display:none;">
+      <div class="demo-creds" id="open-access-box">
         <div class="demo-creds-title">OPEN ACCESS</div>
-        <div class="demo-creds-row" style="margin-bottom:10px;">No login needed – every feature is open to all visitors.</div>
-        <button type="button" class="btn-login" onclick="enterAsVisitor()">Continue without signing in →</button>
+        <div class="demo-creds-row" style="margin-bottom:10px;">No password needed – every feature is open to all visitors.</div>
+        <button type="button" class="btn-login" id="btn-visitor" onclick="continueAsVisitor()">Continue without signing in →</button>
       </div>
-      <div class="demo-creds" id="accounts-box">
+      <div class="demo-creds" id="accounts-box" style="display:none;">
         <div class="demo-creds-title">ACCOUNTS</div>
         <div class="demo-creds-row">Ask your Predicta administrator for a login. Running locally? See the README for the development accounts.</div>
       </div>
@@ -284,6 +284,24 @@
       return false;
     }
 
+    function showLoginOnly() {
+      document.getElementById("open-access-box").style.display = "none";
+      document.getElementById("accounts-box").style.display = "";
+    }
+
+    async function continueAsVisitor() {
+      const btn = document.getElementById("btn-visitor");
+      btn.disabled = true;
+      btn.textContent = "Opening Predicta…";
+      if (await enterAsVisitor()) return;
+      btn.disabled = false;
+      btn.textContent = "Continue without signing in →";
+      const errorEl = document.getElementById("login-error");
+      errorEl.textContent = "Open access is switched off on this server – please sign in.";
+      errorEl.classList.add("show");
+      showLoginOnly();
+    }
+
     // Open access: enter automatically unless the user chose "sign in" (after logging out)
     (async () => {
       if (API.getToken() && !params.has("signin")) { window.location.replace(nextPage()); return; }
@@ -293,12 +311,10 @@
         if (await enterAsVisitor()) return;
         btn.textContent = "Sign In to PREDICTA";
       }
-      // Login form stays; offer password-less entry when the server allows it
+      // The open-access button is shown by default (a slow server must never hide it);
+      // only hide it once the server confirms open access is switched off.
       fetch(`${API.BASE}/health`).then(r => r.json()).then(h => {
-        if (h.public_access) {
-          document.getElementById("open-access-box").style.display = "";
-          document.getElementById("accounts-box").style.display = "none";
-        }
+        if (h.public_access === false) showLoginOnly();
       }).catch(() => {});
     })();
   </script>
