@@ -22,7 +22,7 @@ let fleet = [];
 // ─── Auth Guard ────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", async () => {
   if (!API.getToken()) {
-    window.location.href = "login.html";
+    API.toLogin();
     return;
   }
   const user = API.getUser();
@@ -43,7 +43,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
 function logout() {
   API.clearTokens();
-  window.location.href = "login.html";
+  API.toLogin(true);
 }
 
 // ─── Clock ─────────────────────────────────────────────────────────────────

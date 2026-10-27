@@ -37,6 +37,11 @@ def create_app(config_class=Config):
     @jwt.invalid_token_loader
     def _invalid_token(reason):
         return jsonify({"msg": reason, "error": "Session invalid or expired. Please sign in again."}), 401
+
+    # Visitor sessions stop working as soon as PUBLIC_ACCESS is switched off (answered with 401)
+    @jwt.token_in_blocklist_loader
+    def _visitor_session_closed(jwt_header, jwt_payload):
+        return jwt_payload.get("sub") == "visitor" and not app.config.get("PUBLIC_ACCESS")
     socketio.init_app(app, cors_allowed_origins="*", async_mode="threading")
 
     # Register Blueprints
@@ -67,7 +72,8 @@ def create_app(config_class=Config):
             "status": "PREDICTA 2.0 Online",
             "version": "2.0.0",
             "architecture": "AI-Powered Industrial Predictive Maintenance",
-            "database": "connected"
+            "database": "connected",
+            "public_access": bool(app.config.get("PUBLIC_ACCESS"))
         })
 
     # Serve Frontend UI

@@ -219,7 +219,12 @@
         </button>
       </form>
 
-      <div class="demo-creds">
+      <div class="demo-creds" id="open-access-box" style="display:none;">
+        <div class="demo-creds-title">OPEN ACCESS</div>
+        <div class="demo-creds-row" style="margin-bottom:10px;">No login needed – every feature is open to all visitors.</div>
+        <button type="button" class="btn-login" onclick="enterAsVisitor()">Continue without signing in →</button>
+      </div>
+      <div class="demo-creds" id="accounts-box">
         <div class="demo-creds-title">ACCOUNTS</div>
         <div class="demo-creds-row">Ask your Predicta administrator for a login. Running locally? See the README for the development accounts.</div>
       </div>
@@ -254,7 +259,7 @@
       const result = await API.login(username, password);
       if (result.success) {
         btn.textContent = "✓ Authenticated";
-        setTimeout(() => { window.location.href = "index.html"; }, 500);
+        setTimeout(() => { window.location.href = nextPage(); }, 500);
       } else {
         errorEl.textContent = result.error || "Login failed. Check credentials.";
         errorEl.classList.add("show");
@@ -263,10 +268,39 @@
       }
     }
 
-    // Redirect if already logged in
-    if (API.getToken()) {
-      window.location.href = "index.html";
+    const params = new URLSearchParams(window.location.search);
+
+    // Only same-site page names (e.g. "live.html?x=1") – never an external URL
+    function nextPage() {
+      const next = params.get("next") || "";
+      return /^[a-z_]+\.html(\?[\w=&%.-]*)?$/i.test(next) ? next : "index.html";
     }
+
+    async function enterAsVisitor() {
+      if (await API.startVisitorSession()) {
+        window.location.replace(nextPage());
+        return true;
+      }
+      return false;
+    }
+
+    // Open access: enter automatically unless the user chose "sign in" (after logging out)
+    (async () => {
+      if (API.getToken() && !params.has("signin")) { window.location.replace(nextPage()); return; }
+      if (!params.has("signin")) {
+        const btn = document.getElementById("btn-login");
+        btn.textContent = "Opening Predicta…";
+        if (await enterAsVisitor()) return;
+        btn.textContent = "Sign In to PREDICTA";
+      }
+      // Login form stays; offer password-less entry when the server allows it
+      fetch(`${API.BASE}/health`).then(r => r.json()).then(h => {
+        if (h.public_access) {
+          document.getElementById("open-access-box").style.display = "";
+          document.getElementById("accounts-box").style.display = "none";
+        }
+      }).catch(() => {});
+    })();
   </script>
 </body>
 </html>

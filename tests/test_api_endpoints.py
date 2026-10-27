@@ -168,6 +168,30 @@ def test_token_signed_with_another_key_returns_401(client):
     assert client.post("/api/auth/refresh", headers={"Authorization": f"Bearer {stale}"}).status_code == 401
 
 
+def test_open_access_visitor_gets_admin_without_password(client):
+    client.application.config["PUBLIC_ACCESS"] = True
+    res = client.post("/api/auth/visitor")
+    assert res.status_code == 200
+    body = res.get_json()
+    headers = {"Authorization": f"Bearer {body['access_token']}"}
+    assert body["user"]["role"] == "admin"
+    assert client.get("/api/auth/users", headers=headers).status_code == 200      # admin-only route
+    assert client.get("/api/auth/me", headers=headers).get_json()["username"] == "Visitor"
+    refreshed = client.post("/api/auth/refresh", headers={"Authorization": f"Bearer {body['refresh_token']}"})
+    assert refreshed.status_code == 200
+    assert client.get("/api/health").get_json()["public_access"] is True
+
+
+def test_visitor_sessions_close_when_open_access_is_disabled(client):
+    client.application.config["PUBLIC_ACCESS"] = True
+    token = client.post("/api/auth/visitor").get_json()["access_token"]
+    client.application.config["PUBLIC_ACCESS"] = False
+    assert client.post("/api/auth/visitor").status_code == 403
+    assert client.get("/api/ingest/datasets", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+    # Named accounts keep working
+    assert client.post("/api/auth/login", json={"username": "admin", "password": "Predicta@2024"}).status_code == 200
+
+
 def test_jwt_secret_is_not_a_published_literal():
     from config import Config
     assert Config.JWT_SECRET_KEY not in ("predicta-jwt-secret-key", "")

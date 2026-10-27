@@ -145,7 +145,7 @@
 <script src="js/api.js"></script>
 <script>
 window.addEventListener("DOMContentLoaded", () => {
-  if (!API.getToken()) { window.location.href = "login.html"; return; }
+  if (!API.getToken()) { API.toLogin(); return; }
   const u = API.getUser();
   if (u) document.getElementById("user-name").textContent = u.username;
   if (u && u.role !== "admin") {
@@ -161,7 +161,7 @@ function saveThresholds() {
 function saveAlertSettings() {
   showToast("success", "Saved", "Notification settings updated successfully.");
 }
-function logout() { API.clearTokens(); window.location.href = "login.html"; }
+function logout() { API.clearTokens(); API.toLogin(true); }
 function showToast(type,title,msg){
   const icons={success:"✅",error:"🔴",warning:"⚠️",info:"ℹ️"};
   const tc=document.getElementById("toast-container");

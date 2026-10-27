@@ -83,6 +83,12 @@ class Config:
     LIVE_ASSESSMENT_WINDOW_READINGS  = int(os.getenv("LIVE_ASSESSMENT_WINDOW_READINGS", 720))
     LIVE_OFFLINE_AFTER_SECONDS       = int(os.getenv("LIVE_OFFLINE_AFTER_SECONDS", 60))
 
+    # ─── Public access ────────────────────────────────────────────────────────
+    # True: anyone can use Predicta without a password; visitors are signed in
+    # automatically as "visitor" with FULL ADMIN rights (users, Telegram / Twilio
+    # credentials, SMS sending, device keys). Set PUBLIC_ACCESS=false to require login.
+    PUBLIC_ACCESS = os.getenv("PUBLIC_ACCESS", "true").lower() == "true"
+
     # ─── Default user passwords (seeded on first start) ───────────────────────
     # Production: unset → random password printed once to the server log.
     # Development: unset → documented demo passwords.

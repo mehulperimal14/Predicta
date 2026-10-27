@@ -156,6 +156,17 @@ injected faults, with a finite "time to critical limit" while a trend is rising.
 
 ---
 
+## 4b. Owner decision: open access
+
+The owner chose to make the hosted demo open to everyone. With `PUBLIC_ACCESS=true` (default)
+`POST /api/auth/visitor` issues a password-less admin session ("Visitor"); the login page uses it
+automatically and returns the visitor to the page they opened. `PUBLIC_ACCESS=false` restores
+login-only access and immediately invalidates visitor sessions. Device ingest still requires
+per-device keys. Trade-off accepted knowingly: visitors can change users, notification
+credentials and device keys.
+
+---
+
 ## 5. Still open (not done here)
 
 - Database migrations (Alembic). New **tables** are created automatically; new

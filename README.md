@@ -140,7 +140,16 @@ The bundled fault-type classifier in `ml_model/saved_models/` was trained on gen
 
 ## 8. Installation & quick start
 
-Hosted demo: **https://predicta-i6vf.onrender.com** – ask the maintainer for a login.
+Hosted demo: **https://predicta-i6vf.onrender.com** – open to everyone, no login needed.
+
+### Open access
+
+By default (`PUBLIC_ACCESS=true`) Predicta needs no password: every visitor is signed in automatically as **"Visitor" with full admin rights**. Use the logout button to sign in with a named account instead.
+
+> [!WARNING]
+> With open access anyone can manage users, change the Telegram / Twilio settings (and send SMS that your Twilio account pays for), and register devices or rotate and revoke device keys. Keep `NOTIFICATION_MOCK_MODE=True` on public demos. Set `PUBLIC_ACCESS=false` to require login again; existing visitor sessions stop working immediately.
+>
+> ESP32 devices still authenticate with their own device keys, so they are not affected by this setting.
 
 ```bash
 git clone https://github.com/mehulperimal14/Predicta.git
@@ -201,6 +210,7 @@ tests/test_notifications.py ........  4 passed  (Telegram / SMS formatting, cool
 | Variable | Why |
 |---|---|
 | `FLASK_ENV=production` | Disables demo passwords |
+| `PUBLIC_ACCESS` | `true` (default): no login, visitors are admins. `false`: login required |
 | `SECRET_KEY`, `JWT_SECRET_KEY` | Random 64-hex strings: `python -c "import secrets; print(secrets.token_hex(32))"`. Never reuse values published anywhere. |
 | `PREDICTA_ADMIN_PASSWORD` (+ `_ENGINEER_`, `_OPERATOR_`) | Initial passwords. If unset in production, random ones are printed once to the server log. An existing account still on its old demo password is rotated to this value on start-up. |
 | `DATABASE_URL` | PostgreSQL in production |

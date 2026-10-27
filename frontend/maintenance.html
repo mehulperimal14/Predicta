@@ -271,7 +271,7 @@
 <script>
 const DEVICE = API.getSelectedDevice();
 window.addEventListener("DOMContentLoaded", () => {
-  if (!API.getToken()) { window.location.href = "login.html"; return; }
+  if (!API.getToken()) { API.toLogin(); return; }
   const u = API.getUser();
   if (u) document.getElementById("user-name").textContent = u.username;
   setInterval(() => {
@@ -386,7 +386,7 @@ async function acknowledgeFault(id) {
 
 function openModal()  { document.getElementById("modal-overlay").classList.add("open"); }
 function closeModal() { document.getElementById("modal-overlay").classList.remove("open"); document.getElementById("maint-form").reset(); }
-function logout() { API.clearTokens(); window.location.href = "login.html"; }
+function logout() { API.clearTokens(); API.toLogin(true); }
 function showToast(type,title,msg){
   const icons={success:"✅",error:"🔴",warning:"⚠️",info:"ℹ️"};
   const tc=document.getElementById("toast-container");

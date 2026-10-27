@@ -166,7 +166,7 @@
   <script src="js/api.js"></script>
   <script>
     window.addEventListener("DOMContentLoaded", () => {
-      if (!API.getToken()) { window.location.href = "login.html"; return; }
+      if (!API.getToken()) { API.toLogin(); return; }
       const u = API.getUser(); if (u) document.getElementById("user-name").textContent = u.username;
       const clock = () => document.getElementById("topbar-clock").textContent = new Date().toLocaleTimeString("en-IN", { hour12: false });
       clock(); setInterval(clock, 1000);
@@ -175,7 +175,7 @@
       setInterval(loadSegmentB, 15000);
     });
 
-    function logout() { API.clearTokens(); window.location.href = "login.html"; }
+    function logout() { API.clearTokens(); API.toLogin(true); }
 
     async function loadSegmentA() {
       const [datasets, analyses] = await Promise.all([API.getDatasets(), API.getAnalyses(6)]);

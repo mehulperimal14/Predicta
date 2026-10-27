@@ -3,7 +3,7 @@ PREDICTA – Authentication Routes
 JWT-based login, token refresh, and role-based access control.
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, get_jwt_identity, get_jwt
@@ -14,6 +14,27 @@ from database import db
 from models import User
 
 auth_bp = Blueprint("auth", __name__)
+
+# Identity used for password-less public sessions (PUBLIC_ACCESS=true); not a database user.
+VISITOR = "visitor"
+VISITOR_PROFILE = {"username": "Visitor", "email": "", "role": "admin", "is_active": True, "public": True}
+
+
+@auth_bp.route("/visitor", methods=["POST"])
+def visitor_session():
+    """
+    POST /api/auth/visitor
+    Open access: signs the caller in without a password as an admin "Visitor".
+    Returns 403 when PUBLIC_ACCESS is disabled.
+    """
+    if not current_app.config.get("PUBLIC_ACCESS"):
+        return jsonify({"error": "Public access is disabled. Please sign in."}), 403
+    claims = {"role": VISITOR_PROFILE["role"], "email": ""}
+    return jsonify({
+        "access_token": create_access_token(identity=VISITOR, additional_claims=claims),
+        "refresh_token": create_refresh_token(identity=VISITOR),
+        "user": VISITOR_PROFILE,
+    }), 200
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -53,6 +74,9 @@ def login():
 @jwt_required(refresh=True)
 def refresh():
     identity = get_jwt_identity()
+    if identity == VISITOR:
+        claims = {"role": VISITOR_PROFILE["role"], "email": ""}
+        return jsonify({"access_token": create_access_token(identity=VISITOR, additional_claims=claims)}), 200
     user = User.query.filter_by(username=identity).first()
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -65,6 +89,8 @@ def refresh():
 @jwt_required()
 def me():
     identity = get_jwt_identity()
+    if identity == VISITOR:
+        return jsonify(VISITOR_PROFILE), 200
     user = User.query.filter_by(username=identity).first()
     if not user:
         return jsonify({"error": "User not found"}), 404

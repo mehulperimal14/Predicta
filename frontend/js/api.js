@@ -45,7 +45,7 @@ const API = (() => {
         else {
           clearTokens();
           if (!window.location.pathname.endsWith("login.html")) {
-            window.location.href = "login.html";
+            toLogin();
           }
           return null;
         }
@@ -98,6 +98,28 @@ const API = (() => {
     try { return JSON.parse(localStorage.getItem("predicta_user")); } catch(_) { return null; }
   }
 
+  // Open access (PUBLIC_ACCESS=true on the server): password-less "Visitor" session
+  async function startVisitorSession() {
+    try {
+      const res = await fetch(`${BASE}/auth/visitor`, { method: "POST" });
+      if (!res.ok) return false;
+      const data = await res.json();
+      setTokens(data.access_token, data.refresh_token);
+      localStorage.setItem("predicta_user", JSON.stringify(data.user));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Go to the login page, which enters automatically when open access is on and then
+  // returns to this page. signin=true shows the sign-in form instead (after logout).
+  function toLogin(signin = false) {
+    if (signin) { window.location.href = "login.html?signin=1"; return; }
+    const page = window.location.pathname.split("/").pop() || "index.html";
+    window.location.href = "login.html?next=" + encodeURIComponent(page + window.location.search);
+  }
+
   // Segment B: the live device chosen on the Live Monitor page, shared by the other pages
   function getSelectedDevice() {
     try { return localStorage.getItem("predicta_device") || "MOTOR_01"; } catch (_) { return "MOTOR_01"; }
@@ -138,7 +160,7 @@ const API = (() => {
 
   return {
     BASE,
-    getToken, getRefresh, setTokens, clearTokens, getUser, login,
+    getToken, getRefresh, setTokens, clearTokens, getUser, login, startVisitorSession, toLogin,
     getSelectedDevice, setSelectedDevice, download, esc, fmtHours,
     get:    (path)        => request("GET",    path),
     post:   (path, body)  => request("POST",   path, body),
