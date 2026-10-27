@@ -276,12 +276,23 @@
       return /^[a-z_]+\.html(\?[\w=&%.-]*)?$/i.test(next) ? next : "index.html";
     }
 
+    // A sleeping free-tier server can take about a minute to wake up, so keep retrying
+    // until it answers. Only a 403 means open access is really switched off.
     async function enterAsVisitor() {
-      if (await API.startVisitorSession()) {
-        window.location.replace(nextPage());
-        return true;
+      const btn = document.getElementById("btn-visitor");
+      btn.disabled = true;
+      btn.textContent = "Opening Predicta…";
+      let result = "unreachable";
+      for (let attempt = 0; attempt < 15; attempt++) {
+        result = await API.startVisitorSession();
+        if (result === "ok") { window.location.replace(nextPage()); return result; }
+        if (result === "disabled") break;
+        btn.textContent = "Waking the server up…";
+        await new Promise(r => setTimeout(r, 5000));
       }
-      return false;
+      btn.disabled = false;
+      btn.textContent = "Continue without signing in →";
+      return result;
     }
 
     function showLoginOnly() {
@@ -289,27 +300,31 @@
       document.getElementById("accounts-box").style.display = "";
     }
 
-    async function continueAsVisitor() {
-      const btn = document.getElementById("btn-visitor");
-      btn.disabled = true;
-      btn.textContent = "Opening Predicta…";
-      if (await enterAsVisitor()) return;
-      btn.disabled = false;
-      btn.textContent = "Continue without signing in →";
+    function showVisitorError(result) {
       const errorEl = document.getElementById("login-error");
-      errorEl.textContent = "Open access is switched off on this server – please sign in.";
+      if (result === "disabled") {
+        errorEl.textContent = "Open access is switched off on this server – please sign in.";
+        showLoginOnly();
+      } else {
+        errorEl.textContent = "The server is not answering yet – please try again in a minute.";
+      }
       errorEl.classList.add("show");
-      showLoginOnly();
+    }
+
+    async function continueAsVisitor() {
+      document.getElementById("login-error").classList.remove("show");
+      const result = await enterAsVisitor();
+      if (result !== "ok") showVisitorError(result);
     }
 
     // Open access: enter automatically unless the user chose "sign in" (after logging out)
     (async () => {
       if (API.getToken() && !params.has("signin")) { window.location.replace(nextPage()); return; }
       if (!params.has("signin")) {
-        const btn = document.getElementById("btn-login");
-        btn.textContent = "Opening Predicta…";
-        if (await enterAsVisitor()) return;
-        btn.textContent = "Sign In to PREDICTA";
+        const result = await enterAsVisitor();
+        if (result === "ok") return;
+        if (result === "disabled") { showLoginOnly(); return; }
+        showVisitorError(result);
       }
       // The open-access button is shown by default (a slow server must never hide it);
       // only hide it once the server confirms open access is switched off.

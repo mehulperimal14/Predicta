@@ -98,17 +98,20 @@ const API = (() => {
     try { return JSON.parse(localStorage.getItem("predicta_user")); } catch(_) { return null; }
   }
 
-  // Open access (PUBLIC_ACCESS=true on the server): password-less "Visitor" session
+  // Open access (PUBLIC_ACCESS=true on the server): password-less "Visitor" session.
+  // Returns "ok", "disabled" (the server refused with 403) or "unreachable"
+  // (asleep, restarting or offline - worth retrying).
   async function startVisitorSession() {
     try {
       const res = await fetch(`${BASE}/auth/visitor`, { method: "POST" });
-      if (!res.ok) return false;
+      if (res.status === 403) return "disabled";
+      if (!res.ok) return "unreachable";
       const data = await res.json();
       setTokens(data.access_token, data.refresh_token);
       localStorage.setItem("predicta_user", JSON.stringify(data.user));
-      return true;
+      return "ok";
     } catch (_) {
-      return false;
+      return "unreachable";
     }
   }
 
